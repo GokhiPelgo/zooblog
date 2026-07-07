@@ -1,0 +1,19 @@
+flowchart LR
+    Visitante(["👤 Visitante"]) --> Frontend
+
+    subgraph Frontend["🌐 FRONTEND — Astro (Vercel)"]
+        Site["Sitio estático"]
+    end
+
+    Frontend -- "① build: trae los posts" --> Prismic[("📝 Prismic\nCMS del blog")]
+    Frontend -- "② en vivo: pide datos" --> Backend
+
+    subgraph Backend["⚙️ BACKEND — Laravel + Filament (Render)"]
+        API["API + Panel /admin"]
+    end
+
+    Backend --> DB[("🗄️ PostgreSQL")]
+    Backend --> R2[("🖼️ Cloudflare R2")]
+    Backend --> Resend[("✉️ Resend")]
+
+    Admin(["🔑 Admin"]) --> Backend

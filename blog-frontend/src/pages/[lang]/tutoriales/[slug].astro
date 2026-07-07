@@ -1,0 +1,8 @@
+---
+// El detalle de los tutoriales ahora se renderiza del lado del cliente
+// en /[lang]/tutoriales/ver?slug=... (ver ver.astro), para no depender
+// del backend durante el build. Esta ruta dinámica ya no genera páginas.
+export function getStaticPaths() {
+  return [];
+}
+---

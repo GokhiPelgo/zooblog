@@ -1,0 +1,20 @@
+flowchart TD
+    A(["Visitante llena el\nformulario en /es/contacto"]) --> B{"Validación en\nel navegador\n(nombre, correo, mensaje)"}
+    B -- Inválido --> B1["Muestra errores\nen el formulario"]
+    B -- Válido --> C["POST /api/contact\n(CORS permitido)"]
+    C --> D{"Rate limit:\n¿más de 5/hora\npor IP?"}
+    D -- Sí --> D1["429 - Too many\nrequests"]
+    D -- No --> E["Laravel valida y limpia\n(ContactRequest)"]
+    E --> F{"¿Datos válidos?"}
+    F -- No --> F1["422 - Errores\nde validación"]
+    F -- Sí --> G[("Guarda mensaje\nen PostgreSQL")]
+    G --> H["Envía correo al\nadministrador vía Resend"]
+    H --> I["Responde 201"]
+    I --> J(["Sitio muestra:\n¡Gracias por contactarnos!"])
+
+    G -.-> K["Admin revisa mensajes\nen /admin o GET /api/contact-messages\n(header X-Admin-Token)"]
+
+    style A fill:#065f46,color:#fff
+    style J fill:#065f46,color:#fff
+    style D1 fill:#7f1d1d,color:#fff
+    style F1 fill:#7f1d1d,color:#fff

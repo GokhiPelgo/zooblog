@@ -1,0 +1,32 @@
+---
+import BlogCard from "./BlogCard.astro";
+import type { NormalizedPost } from "../prismicio";
+import { useTranslations } from "../i18n/utils";
+
+const { currentPost, lang, allPosts } = Astro.props as {
+  currentPost: NormalizedPost;
+  lang:        string;
+  allPosts:    NormalizedPost[];
+};
+
+const t = useTranslations(lang);
+
+const relatedPosts = allPosts
+  .filter((post) => post.uid !== currentPost.uid)
+  .filter((post) => post.tags.some((tag) => currentPost.tags.includes(tag)))
+  .slice(0, 3);
+---
+
+{relatedPosts.length > 0 && (
+  <section class="mx-auto max-w-6xl px-6 py-20">
+    <h2 class="text-4xl font-black text-slate-950">
+      {t("relatedPosts")}
+    </h2>
+
+    <div class="mt-10 grid gap-8 md:grid-cols-3">
+      {relatedPosts.map((post) => (
+        <BlogCard post={post} lang={lang} />
+      ))}
+    </div>
+  </section>
+)}

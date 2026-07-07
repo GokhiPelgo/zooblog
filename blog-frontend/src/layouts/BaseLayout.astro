@@ -1,0 +1,107 @@
+---
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { getLangFromUrl } from "../i18n/utils";
+
+const lang = getLangFromUrl(Astro.url);
+
+const {
+  title = "ZOOBLOG",
+  description = "Blog educativo sobre animales, especies y biodiversidad.",
+  switchUrl,
+  ogImage,
+} = Astro.props;
+
+const siteUrl    = import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
+const canonicalUrl = new URL(Astro.url.pathname, siteUrl).toString();
+const ogImageUrl   = ogImage ? (ogImage.startsWith("http") ? ogImage : `${siteUrl}${ogImage}`) : `${siteUrl}/images/guacamaya.jpg`;
+
+// hreflang: solo se emite cuando conocemos la URL de la misma página en el
+// otro idioma (switchUrl). Mejor no poner hreflang que ponerlo mal.
+const otherUrl = switchUrl as string | undefined;
+const esUrl = otherUrl ? new URL(lang === "es" ? Astro.url.pathname : otherUrl, siteUrl).toString() : null;
+const enUrl = otherUrl ? new URL(lang === "en" ? Astro.url.pathname : otherUrl, siteUrl).toString() : null;
+---
+
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+
+    {/* hreflang: relaciona las versiones es / en de esta misma página */}
+    {esUrl && enUrl && (
+      <>
+        <link rel="alternate" hreflang="es" href={esUrl} />
+        <link rel="alternate" hreflang="en" href={enUrl} />
+        <link rel="alternate" hreflang="x-default" href={esUrl} />
+      </>
+    )}
+
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:url"         content={canonicalUrl} />
+    <meta property="og:title"       content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image"       content={ogImageUrl} />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image"       content={ogImageUrl} />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+  </head>
+
+  <body>
+    <Header lang={lang} switchUrl={switchUrl} />
+
+    <main>
+      <slot />
+    </main>
+
+    <Footer lang={lang} />
+
+    <script>
+      import Lenis from "lenis";
+
+      const lenis = new Lenis({ duration: 1.2, smoothWheel: true, smoothTouch: false });
+      function raf(time: number) { lenis.raf(time); requestAnimationFrame(raf); }
+      requestAnimationFrame(raf);
+      (window as any).lenis = lenis;
+    </script>
+
+    <script>
+      import { gsap } from "gsap";
+      import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      const heroTitle = document.querySelector("[data-hero-title]");
+      if (heroTitle) {
+        gsap.from(heroTitle, { y: 50, opacity: 0, duration: 1, ease: "power3.out" });
+      }
+
+      document.querySelectorAll("[data-scroll-reveal]").forEach((el) => {
+        gsap.fromTo(el,
+          { y: 40, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.9, ease: "power3.out",
+            scrollTrigger: { trigger: el, start: "top 85%", once: true } }
+        );
+      });
+
+      document.querySelectorAll("[data-scroll-image]").forEach((img) => {
+        gsap.fromTo(img,
+          { scale: 1.08, opacity: 0 },
+          { scale: 1, opacity: 1, duration: 1, ease: "power3.out",
+            scrollTrigger: { trigger: img, start: "top 85%", once: true } }
+        );
+      });
+    </script>
+  </body>
+</html>

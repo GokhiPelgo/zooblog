@@ -1,0 +1,128 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import BlogCard from "../../../components/BlogCard.astro";
+import BlogSidebar from "../../../components/BlogSidebar.astro";
+import FeaturedPost from "../../../components/FeaturedPost.astro";
+import { createClient, normalizePost, langToLocale } from "../../../prismicio";
+import { useTranslations } from "../../../i18n/utils";
+
+export function getStaticPaths() {
+  return [{ params: { lang: "es" } }, { params: { lang: "en" } }];
+}
+
+const lang = Astro.params.lang as "es" | "en";
+const t = useTranslations(lang);
+
+const client = createClient();
+const docs = await client.getAllByType("post", {
+  lang: langToLocale[lang],
+  orderings: [{ field: "document.first_publication_date", direction: "desc" }],
+});
+
+const posts = docs.map(normalizePost);
+
+const featuredPost = posts[0];
+const regularPosts = posts.slice(1);
+
+const switchUrl = lang === "es" ? "/en/blog" : "/es/blog";
+---
+
+<BaseLayout title="Blog | ZOOBLOG" switchUrl={switchUrl}>
+  <section class="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-sky-50">
+    <div class="mx-auto max-w-7xl px-6 py-20">
+
+      <!-- HERO -->
+      <div data-scroll-reveal class="max-w-3xl">
+        <span class="inline-flex rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
+          {lang === "es" ? "Zoología y biodiversidad" : "Zoology and biodiversity"}
+        </span>
+
+        <h1
+          data-hero-title
+          class="mt-6 text-5xl font-black tracking-tight text-slate-950 md:text-6xl"
+        >
+          {lang === "es" ? "Blog de animales" : "Animal blog"}
+        </h1>
+
+        <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+          {lang === "es"
+            ? "Explora artículos, especies, hábitats y curiosidades del mundo animal."
+            : "Explore articles, species, habitats and curiosities from the animal world."}
+        </p>
+      </div>
+
+      <!-- BUSCADOR -->
+      <div data-scroll-reveal class="mt-10">
+        <input
+          id="blog-search"
+          type="search"
+          placeholder={t("searchPlaceholder")}
+          class="w-full rounded-3xl border border-slate-200 bg-white/90 px-6 py-5 text-lg text-slate-900 shadow-lg shadow-emerald-100/50 backdrop-blur outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+        />
+      </div>
+
+      <!-- LAYOUT BLOG -->
+      <div class="mt-14 grid gap-10 lg:grid-cols-[280px_1fr]">
+
+        <!-- SIDEBAR -->
+        <div data-scroll-reveal>
+          <BlogSidebar posts={posts} lang={lang} />
+        </div>
+
+        <!-- CONTENIDO -->
+        <div>
+
+          <!-- POST DESTACADO -->
+          {featuredPost && (
+            <div
+              data-scroll-reveal
+              class="blog-item"
+              data-search={`${featuredPost.title} ${featuredPost.description} ${featuredPost.tags.join(" ")}`.toLowerCase()}
+            >
+              <FeaturedPost post={featuredPost} lang={lang} />
+            </div>
+          )}
+
+          <!-- MENSAJE VACÍO -->
+          <p id="empty-message" class="mt-8 hidden rounded-2xl bg-white p-6 text-slate-500 shadow-lg">
+            {t("noResults")}
+          </p>
+
+          <!-- GRID DE POSTS -->
+          <div id="blog-list" class="mt-10 grid gap-8 md:grid-cols-2">
+            {regularPosts.map((post) => (
+              <div
+                data-scroll-reveal
+                class="blog-item transition-all duration-300"
+                data-search={`${post.title} ${post.description} ${post.tags.join(" ")}`.toLowerCase()}
+              >
+                <BlogCard post={post} lang={lang} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <script>
+    const searchInput  = document.querySelector("#blog-search");
+    const blogItems    = document.querySelectorAll(".blog-item");
+    const emptyMessage = document.querySelector("#empty-message");
+
+    searchInput?.addEventListener("input", (event) => {
+      const query = (event.target as HTMLInputElement).value.toLowerCase().trim();
+      let visiblePosts = 0;
+
+      blogItems.forEach((item) => {
+        const content = (item as HTMLElement).dataset.search || "";
+        const match   = content.includes(query);
+        item.classList.toggle("hidden", !match);
+        if (match) visiblePosts++;
+      });
+
+      emptyMessage?.classList.toggle("hidden", visiblePosts > 0);
+    });
+  </script>
+</BaseLayout>

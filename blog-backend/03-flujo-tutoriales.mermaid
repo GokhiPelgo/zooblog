@@ -1,0 +1,22 @@
+flowchart TD
+    subgraph Alta["Alta de un tutorial"]
+        A(["Admin entra a /admin"]) --> B["Crea/edita tutorial:\ntítulo, slug, contenido,\nnivel, imagen..."]
+        B --> C["Sube imagen de portada\n(FileUpload → disco s3)"]
+        C --> D[("Imagen guardada en\nCloudflare R2")]
+        B --> E["Marca is_published = true"]
+        E --> F[("Se guarda en\nPostgreSQL")]
+    end
+
+    subgraph Lectura["Visitante ve los tutoriales (en vivo)"]
+        G(["Visitante abre\n/es/tutoriales"]) --> H["Frontend pide:\nGET /api/tutorials?lang=es"]
+        H --> I["Backend consulta\nPostgreSQL"]
+        I --> J["Devuelve JSON con\ntutoriales publicados"]
+        J --> K["Frontend renderiza\nlista (buscador + filtro por nivel)"]
+        K --> L(["Visitante abre un tutorial:\nGET /api/tutorials/{slug}"])
+        L --> M["Muestra detalle\n(imagen desde R2 + contenido)"]
+    end
+
+    F -.->|disponible sin rebuild| H
+
+    style Alta fill:#3730a3,color:#fff
+    style Lectura fill:#065f46,color:#fff

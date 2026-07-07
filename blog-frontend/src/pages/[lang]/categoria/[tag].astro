@@ -1,0 +1,75 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import BlogCard from "../../../components/BlogCard.astro";
+import { createClient, normalizePost, langToLocale } from "../../../prismicio";
+
+export async function getStaticPaths() {
+  const client = createClient();
+
+  const [docsEs, docsEn] = await Promise.all([
+    client.getAllByType("post", { lang: "es-mx" }),
+    client.getAllByType("post", { lang: "en-us" }),
+  ]);
+
+  const paths: { params: { lang: string; tag: string } }[] = [];
+
+  for (const [urlLang, docs] of [["es", docsEs], ["en", docsEn]] as const) {
+    const tags = [...new Set(docs.map(normalizePost).flatMap((p) => p.tags))];
+    tags.forEach((tag) => paths.push({ params: { lang: urlLang, tag } }));
+  }
+
+  return paths;
+}
+
+const { lang, tag } = Astro.params as { lang: "es" | "en"; tag: string };
+
+const client  = createClient();
+const docs    = await client.getAllByType("post", { lang: langToLocale[lang] });
+const filtered = docs
+  .map(normalizePost)
+  .filter((post) => post.tags.includes(tag))
+  .sort((a, b) => new Date(b.publishedAt).valueOf() - new Date(a.publishedAt).valueOf());
+---
+
+<BaseLayout title={`#${tag} | ZOOBLOG`}>
+  <section class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-sky-50 px-6 py-24">
+    <div class="mx-auto max-w-6xl">
+
+      <div data-scroll-reveal class="mb-14">
+        <a
+          href={`/${lang}/blog`}
+          class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-600 shadow-sm transition hover:text-emerald-700"
+        >
+          ← {lang === "es" ? "Volver al blog" : "Back to blog"}
+        </a>
+
+        <span class="mt-6 inline-flex rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
+          {lang === "es" ? "Categoría" : "Category"}
+        </span>
+
+        <h1 class="mt-4 text-5xl font-black tracking-tight text-slate-950 md:text-6xl">
+          #{tag}
+        </h1>
+
+        <p class="mt-4 text-lg text-slate-600">
+          {filtered.length} {lang === "es" ? "artículos" : "articles"}
+        </p>
+      </div>
+
+      {filtered.length > 0 ? (
+        <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((post) => (
+            <div data-scroll-reveal>
+              <BlogCard post={post} lang={lang} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p class="rounded-2xl bg-white p-8 text-slate-500 shadow-lg">
+          {lang === "es" ? "No hay artículos en esta categoría." : "No articles in this category."}
+        </p>
+      )}
+
+    </div>
+  </section>
+</BaseLayout>

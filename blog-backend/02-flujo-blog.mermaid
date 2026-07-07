@@ -1,0 +1,16 @@
+flowchart TD
+    A(["Redactor escribe\nun artículo"]) --> B["Publica el post\nen Prismic"]
+    B --> C["Entra al panel /admin\ny pulsa 🚀 Publicar"]
+    C --> D["Backend: POST /publish\n(requiere estar autenticado)"]
+    D --> E{"¿DEPLOY_HOOK_URL\nconfigurado?"}
+    E -- No --> E1["Muestra error:\nFalta configurar DEPLOY_HOOK_URL"]
+    E -- Sí --> F["POST al Deploy Hook\nde Vercel"]
+    F --> G["Vercel reconstruye:\nastro build"]
+    G --> H["Astro va a Prismic\ny trae todos los posts"]
+    H --> I["Genera HTML estático\n(nuevo build)"]
+    I --> J["Vercel despliega\nel nuevo sitio"]
+    J --> K(["Visitante ve el post\nnuevo en /blog"])
+
+    style A fill:#065f46,color:#fff
+    style K fill:#065f46,color:#fff
+    style E1 fill:#7f1d1d,color:#fff

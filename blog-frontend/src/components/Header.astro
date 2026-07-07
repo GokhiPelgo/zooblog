@@ -1,0 +1,167 @@
+---
+import LanguageSwitcher from "./LanguageSwitcher.astro";
+import { useTranslations, tutSegment } from "../i18n/utils";
+
+const { lang, switchUrl } = Astro.props;
+
+const currentLang = lang === "en" ? "en" : "es";
+const t = useTranslations(currentLang);
+
+const routes = {
+  es: {
+    home: "/es",
+    blog: "/es/blog",
+    tutorials: "/es/tutoriales",
+    about: "/es/sobre-nosotros",
+    services: "/es/servicios",
+    contact: "/es/contacto",
+  },
+  en: {
+    home: "/en",
+    blog: "/en/blog",
+    tutorials: "/en/tutorials",
+    about: "/en/about",
+    services: "/en/services",
+    contact: "/en/contact",
+  },
+};
+
+const links = routes[currentLang];
+
+const path = Astro.url.pathname;
+
+const isHome      = path === links.home || path === "/";
+const isBlog      = path.startsWith(`/${currentLang}/blog`);
+const isTutorials = path.startsWith(`/${currentLang}/${tutSegment[currentLang]}`);
+const isAbout     = path === links.about;
+const isServices  = path === links.services;
+
+const baseLink = "transition font-bold text-sm";
+const active   = "text-emerald-700 underline underline-offset-4 decoration-2 decoration-emerald-400";
+const inactive = "text-slate-700 hover:text-emerald-700";
+
+const contactBtn = "rounded-full bg-emerald-600 px-5 py-2 text-white transition hover:-translate-y-0.5 hover:bg-emerald-700";
+
+const mobileBase     = "rounded-xl px-4 py-3 font-bold transition";
+const mobileActive   = "bg-emerald-50 text-emerald-700 border-l-4 border-emerald-500";
+const mobileInactive = "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700";
+---
+
+<header class="sticky top-0 z-50 border-b border-emerald-100 bg-white/80 backdrop-blur-xl">
+  <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+
+    <!-- LOGO -->
+    <a href={links.home} class="text-xl font-black text-emerald-700 transition hover:text-emerald-800">
+      ZOOBLOG
+    </a>
+
+    <!-- HAMBURGER BUTTON -->
+    <button
+      id="menu-toggle"
+      aria-label={currentLang === "es" ? "Abrir menú" : "Open menu"}
+      aria-expanded="false"
+      aria-controls="mobile-menu"
+      class="flex flex-col gap-1.5 rounded-xl p-2 transition hover:bg-emerald-50 lg:hidden"
+    >
+      <span id="bar1" class="block h-0.5 w-6 rounded-full bg-slate-700 transition-all duration-300"></span>
+      <span id="bar2" class="block h-0.5 w-6 rounded-full bg-slate-700 transition-all duration-300"></span>
+      <span id="bar3" class="block h-0.5 w-6 rounded-full bg-slate-700 transition-all duration-300"></span>
+    </button>
+
+    <!-- MENÚ DESKTOP -->
+    <div class="hidden items-center gap-6 text-sm lg:flex">
+      <a href={links.home} class:list={[baseLink, isHome ? active : inactive]}>
+        {t("home")}
+      </a>
+      <a href={links.blog} class:list={[baseLink, isBlog ? active : inactive]}>
+        {t("blog")}
+      </a>
+      <a href={links.tutorials} class:list={[baseLink, isTutorials ? active : inactive]}>
+        {currentLang === "es" ? "Tutoriales" : "Tutorials"}
+      </a>
+      <a href={links.about} class:list={[baseLink, isAbout ? active : inactive]}>
+        {t("about")}
+      </a>
+      <a href={links.services} class:list={[baseLink, isServices ? active : inactive]}>
+        {t("services")}
+      </a>
+      <a href={links.contact} class={contactBtn}>
+        {currentLang === "es" ? "Contacto" : "Contact"}
+      </a>
+      <LanguageSwitcher lang={currentLang} switchUrl={switchUrl} />
+    </div>
+
+  </nav>
+
+  <!-- MENÚ MÓVIL -->
+  <div
+    id="mobile-menu"
+    class="hidden border-t border-emerald-100 bg-white/95 backdrop-blur-xl lg:hidden"
+    aria-hidden="true"
+  >
+    <div class="mx-auto flex max-w-6xl flex-col gap-1 px-6 py-4">
+      <a href={links.home} class:list={[mobileBase, isHome ? mobileActive : mobileInactive]}>
+        {t("home")}
+      </a>
+      <a href={links.blog} class:list={[mobileBase, isBlog ? mobileActive : mobileInactive]}>
+        {t("blog")}
+      </a>
+      <a href={links.tutorials} class:list={[mobileBase, isTutorials ? mobileActive : mobileInactive]}>
+        {currentLang === "es" ? "Tutoriales" : "Tutorials"}
+      </a>
+      <a href={links.about} class:list={[mobileBase, isAbout ? mobileActive : mobileInactive]}>
+        {t("about")}
+      </a>
+      <a href={links.services} class:list={[mobileBase, isServices ? mobileActive : mobileInactive]}>
+        {t("services")}
+      </a>
+      <a
+        href={links.contact}
+        class="mt-1 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white transition hover:bg-emerald-700"
+      >
+        {currentLang === "es" ? "Contacto" : "Contact"}
+      </a>
+      <div class="mt-2 flex items-center gap-3 px-1">
+        <LanguageSwitcher lang={currentLang} switchUrl={switchUrl} />
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  const toggle = document.getElementById("menu-toggle");
+  const menu   = document.getElementById("mobile-menu");
+  const bar1   = document.getElementById("bar1");
+  const bar2   = document.getElementById("bar2");
+  const bar3   = document.getElementById("bar3");
+
+  toggle?.addEventListener("click", () => {
+    const isOpen = menu?.getAttribute("aria-hidden") === "false";
+    if (isOpen) {
+      menu?.classList.add("hidden");
+      menu?.setAttribute("aria-hidden", "true");
+      toggle.setAttribute("aria-expanded", "false");
+      bar1?.classList.remove("translate-y-2", "rotate-45");
+      bar2?.classList.remove("opacity-0");
+      bar3?.classList.remove("-translate-y-2", "-rotate-45");
+    } else {
+      menu?.classList.remove("hidden");
+      menu?.setAttribute("aria-hidden", "false");
+      toggle.setAttribute("aria-expanded", "true");
+      bar1?.classList.add("translate-y-2", "rotate-45");
+      bar2?.classList.add("opacity-0");
+      bar3?.classList.add("-translate-y-2", "-rotate-45");
+    }
+  });
+
+  menu?.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => {
+      menu.classList.add("hidden");
+      menu.setAttribute("aria-hidden", "true");
+      toggle?.setAttribute("aria-expanded", "false");
+      bar1?.classList.remove("translate-y-2", "rotate-45");
+      bar2?.classList.remove("opacity-0");
+      bar3?.classList.remove("-translate-y-2", "-rotate-45");
+    });
+  });
+</script>

@@ -1,0 +1,341 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { routes } from "../../data/routes";
+
+export function getStaticPaths() {
+  return Object.entries(routes).flatMap(([lang, pages]) =>
+    Object.keys(pages).map((slug) => ({
+      params: { lang, slug },
+    }))
+  );
+}
+
+const lang = Astro.params.lang === "en" ? "en" : "es";
+const slug = Astro.params.slug as string;
+
+type Page = {
+  title: string;
+  eyebrow: string;
+  description: string;
+  image: string;
+  alt: string;
+  ctaUrl: string;
+  cta: string;
+};
+
+const page = routes[lang][slug as keyof typeof routes[typeof lang]] as Page | undefined;
+
+if (!page) {
+  return Astro.redirect(`/${lang}`);
+}
+
+const isContactPage  = slug === "contacto" || slug === "contact";
+const isServicesPage = slug === "servicios" || slug === "services";
+const isAboutPage    = slug === "sobre-nosotros" || slug === "about";
+
+// URL de esta misma página en el otro idioma (los slugs difieren por idioma)
+const altSlug: Record<"es" | "en", Record<string, string>> = {
+  es: { "sobre-nosotros": "about", servicios: "services", contacto: "contact" },
+  en: { about: "sobre-nosotros", services: "servicios", contact: "contacto" },
+};
+const otherLang = lang === "es" ? "en" : "es";
+const mappedSlug = altSlug[lang][slug];
+const switchUrl = mappedSlug ? `/${otherLang}/${mappedSlug}` : `/${otherLang}`;
+---
+
+<BaseLayout title={`${page.title} | ZOOBLOG`} switchUrl={switchUrl}>
+  <section class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-sky-50 px-6 py-24">
+    <div class="mx-auto max-w-6xl">
+      <div data-scroll-reveal class="mb-14 max-w-3xl">
+        <span class="inline-flex rounded-full bg-emerald-100 px-5 py-3 text-sm font-black text-emerald-700">
+          {page.eyebrow}
+        </span>
+
+        <h1 class="mt-8 text-5xl font-black leading-tight tracking-tight text-slate-950 md:text-7xl">
+          {page.title}
+        </h1>
+
+        <p class="mt-6 text-xl leading-9 text-slate-600">
+          {page.description}
+        </p>
+      </div>
+
+      <div class="grid items-start gap-10 lg:grid-cols-2">
+        <div class="overflow-hidden rounded-[2rem] bg-white p-3 shadow-2xl shadow-emerald-900/10">
+          <img
+            src={page.image}
+            alt={page.alt}
+            loading="eager"
+            class="aspect-[4/3] w-full rounded-[1.5rem] object-cover"
+          />
+        </div>
+
+        <div class="rounded-[2rem] border border-emerald-100 bg-white p-10 shadow-xl shadow-emerald-900/5">
+          <h2 class="text-3xl font-black text-slate-950">
+            {isContactPage
+              ? lang === "es" ? "Formulario de contacto" : "Contact form"
+              : isServicesPage
+                ? lang === "es" ? "Nuestra misión" : "Our mission"
+                : lang === "es" ? "Nuestra labor" : "Our work"}
+          </h2>
+
+          <p class="mt-4 text-lg leading-8 text-slate-600">
+            {isContactPage
+              ? lang === "es"
+                ? "Completa el formulario y te responderemos a la brevedad."
+                : "Fill out the form and we'll get back to you soon."
+              : isServicesPage
+                ? lang === "es"
+                  ? "Nos encargamos de informar y educar para la concientización del cuidado de los animales y nuestro ecosistema. Si quieres generar una aportación a nuestro blog, contáctanos."
+                  : "We are dedicated to informing and educating people about animal care and our ecosystem. If you want to contribute to our blog, contact us."
+                : lang === "es"
+                  ? "Detrás de cada artículo hay horas de investigación, verificación de fuentes y un compromiso genuino por divulgar información precisa sobre el mundo animal. Creemos que educar es la mejor forma de proteger."
+                  : "Behind every article are hours of research, source verification, and a genuine commitment to sharing accurate information about the animal world. We believe education is the best form of protection."}
+          </p>
+
+          {isServicesPage && (
+            <a
+              href={`/${lang}/${lang === "es" ? "contacto" : "contact"}`}
+              class="mt-8 inline-flex rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white shadow-lg shadow-emerald-200 transition hover:-translate-y-1 hover:bg-emerald-700"
+            >
+              {lang === "es" ? "Contáctanos" : "Contact us"}
+            </a>
+          )}
+
+          {isContactPage ? (
+            <form id="contactForm" novalidate class="mt-8 space-y-5">
+              <!-- Nombre -->
+              <div>
+                <label for="name" class="block text-sm font-bold text-slate-700">
+                  {lang === "es" ? "Nombre" : "Name"}
+                </label>
+                <input
+                  id="name" name="name" type="text"
+                  autocomplete="name"
+                  maxlength="100"
+                  class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                  placeholder={lang === "es" ? "Tu nombre completo" : "Your full name"}
+                />
+                <p id="nameError" class="mt-1 hidden text-xs font-bold text-red-500"></p>
+              </div>
+
+              <!-- Correo -->
+              <div>
+                <label for="email" class="block text-sm font-bold text-slate-700">
+                  {lang === "es" ? "Correo electrónico" : "Email"}
+                </label>
+                <input
+                  id="email" name="email" type="email"
+                  inputmode="email"
+                  autocomplete="email"
+                  maxlength="254"
+                  class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                  placeholder={lang === "es" ? "correo@ejemplo.com" : "email@example.com"}
+                />
+                <p id="emailError" class="mt-1 hidden text-xs font-bold text-red-500"></p>
+              </div>
+
+              <!-- Mensaje -->
+              <div>
+                <label for="message" class="block text-sm font-bold text-slate-700">
+                  {lang === "es" ? "Mensaje" : "Message"}
+                </label>
+                <textarea
+                  id="message" name="message" rows="5"
+                  maxlength="2000"
+                  class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 resize-none"
+                  placeholder={lang === "es" ? "Escribe tu mensaje aquí..." : "Write your message here..."}
+                ></textarea>
+                <div class="flex items-center justify-between">
+                  <p id="messageError" class="mt-1 hidden text-xs font-bold text-red-500"></p>
+                  <span id="msgCount" class="ml-auto mt-1 text-xs text-slate-400">0 / 2000</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                class="rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white shadow-lg shadow-emerald-200 transition hover:-translate-y-1 hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {lang === "es" ? "Enviar mensaje" : "Send message"}
+              </button>
+
+              <p id="formStatus" class="text-sm font-bold"></p>
+            </form>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const form        = document.querySelector("#contactForm") as HTMLFormElement | null;
+    const formStatus  = document.querySelector("#formStatus") as HTMLParagraphElement | null;
+    const nameInput   = document.querySelector("#name")    as HTMLInputElement | null;
+    const emailInput  = document.querySelector("#email")   as HTMLInputElement | null;
+    const msgInput    = document.querySelector("#message") as HTMLTextAreaElement | null;
+    const msgCount    = document.querySelector("#msgCount") as HTMLSpanElement | null;
+
+    const nameError    = document.querySelector("#nameError")    as HTMLParagraphElement | null;
+    const emailError   = document.querySelector("#emailError")   as HTMLParagraphElement | null;
+    const messageError = document.querySelector("#messageError") as HTMLParagraphElement | null;
+
+    // ── Reglas ─────────────────────────────────────────────────────
+    // Solo letras (unicode), espacios y guiones — sin números ni símbolos
+    const nameRe  = /^[\p{L}\s\-]+$/u;
+    // Caracteres reales que admiten Gmail, Outlook, Yahoo, etc.
+    // Local: letras, dígitos, punto, guion, guion_bajo, signo+
+    // Dominio: letras, dígitos, puntos, guiones
+    // TLD: solo letras, mínimo 2
+    const emailRe = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+
+    const isEs = document.documentElement.lang?.startsWith("es") ?? true;
+
+    const msgs = {
+      nameRequired:  isEs ? "El nombre es obligatorio."                            : "Name is required.",
+      nameFormat:    isEs ? "Solo letras y espacios, sin números ni símbolos."     : "Letters and spaces only — no numbers or symbols.",
+      emailRequired: isEs ? "El correo es obligatorio."                            : "Email is required.",
+      emailFormat:   isEs ? "Ingresa un correo válido, ej: nombre@dominio.com"     : "Enter a valid email, e.g. name@domain.com",
+      msgRequired:   isEs ? "El mensaje es obligatorio."                           : "Message is required.",
+      msgShort:      isEs ? "Escribe al menos 10 caracteres."                      : "Write at least 10 characters.",
+      success:       isEs ? "¡Mensaje enviado con éxito!"                          : "Message sent successfully!",
+    };
+
+    // ── Helpers ────────────────────────────────────────────────────
+    function showFieldError(el: HTMLParagraphElement | null, msg: string) {
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.toggle("hidden", !msg);
+    }
+
+    function clearErrors() {
+      [nameError, emailError, messageError].forEach(el => showFieldError(el, ""));
+      if (formStatus) formStatus.textContent = "";
+    }
+
+    function markInvalid(input: HTMLInputElement | HTMLTextAreaElement | null) {
+      input?.classList.add("border-red-400");
+      input?.classList.remove("border-slate-200");
+    }
+
+    function markValid(input: HTMLInputElement | HTMLTextAreaElement | null) {
+      input?.classList.remove("border-red-400");
+      input?.classList.add("border-slate-200");
+    }
+
+    // ── Bloquear números en el campo nombre (tiempo real) ──────────
+    nameInput?.addEventListener("input", () => {
+      // Elimina cualquier caracter que no sea letra, espacio o guion
+      nameInput.value = nameInput.value.replace(/[^[\p{L}\s\-]/gu, "");
+    });
+
+    // ── Contador de caracteres del mensaje ─────────────────────────
+    msgInput?.addEventListener("input", () => {
+      const len = msgInput.value.length;
+      if (msgCount) msgCount.textContent = `${len} / 2000`;
+    });
+
+    // ── Validación al perder el foco (feedback inmediato) ──────────
+    nameInput?.addEventListener("blur", () => {
+      const val = nameInput.value.trim();
+      if (!val) { markInvalid(nameInput); showFieldError(nameError, msgs.nameRequired); }
+      else if (!nameRe.test(val)) { markInvalid(nameInput); showFieldError(nameError, msgs.nameFormat); }
+      else { markValid(nameInput); showFieldError(nameError, ""); }
+    });
+
+    emailInput?.addEventListener("blur", () => {
+      const val = emailInput.value.trim().toLowerCase();
+      if (!val) { markInvalid(emailInput); showFieldError(emailError, msgs.emailRequired); }
+      else if (!emailRe.test(val)) { markInvalid(emailInput); showFieldError(emailError, msgs.emailFormat); }
+      else { markValid(emailInput); showFieldError(emailError, ""); }
+    });
+
+    // ── Submit ─────────────────────────────────────────────────────
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearErrors();
+
+      const name    = nameInput?.value.trim() ?? "";
+      const email   = emailInput?.value.trim().toLowerCase() ?? "";
+      const message = msgInput?.value.trim() ?? "";
+
+      let valid = true;
+
+      if (!name) {
+        markInvalid(nameInput); showFieldError(nameError, msgs.nameRequired); valid = false;
+      } else if (!nameRe.test(name)) {
+        markInvalid(nameInput); showFieldError(nameError, msgs.nameFormat); valid = false;
+      } else {
+        markValid(nameInput);
+      }
+
+      if (!email) {
+        markInvalid(emailInput); showFieldError(emailError, msgs.emailRequired); valid = false;
+      } else if (!emailRe.test(email)) {
+        markInvalid(emailInput); showFieldError(emailError, msgs.emailFormat); valid = false;
+      } else {
+        markValid(emailInput);
+      }
+
+      if (!message) {
+        markInvalid(msgInput); showFieldError(messageError, msgs.msgRequired); valid = false;
+      } else if (message.length < 10) {
+        markInvalid(msgInput); showFieldError(messageError, msgs.msgShort); valid = false;
+      } else {
+        markValid(msgInput);
+      }
+
+      if (!valid) return;
+
+      // ── POST al backend ────────────────────────────────────────────
+      const submitBtn = form.querySelector("button[type='submit']") as HTMLButtonElement | null;
+      if (submitBtn) submitBtn.disabled = true;
+
+      const API = import.meta.env.PUBLIC_API_URL ?? "http://localhost:8000";
+
+      try {
+        const res = await fetch(`${API}/api/contact`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept":        "application/json",
+          },
+          body: JSON.stringify({ name, email, message }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          // Errores de validación del servidor (422) u otros
+          if (data.errors) {
+            if (data.errors.name)    showFieldError(nameError,    data.errors.name[0]);
+            if (data.errors.email)   showFieldError(emailError,   data.errors.email[0]);
+            if (data.errors.message) showFieldError(messageError, data.errors.message[0]);
+          } else {
+            if (formStatus) {
+              formStatus.textContent = data.message ?? (isEs ? "Error al enviar." : "Failed to send.");
+              formStatus.className   = "text-sm font-bold text-red-600";
+            }
+          }
+          return;
+        }
+
+        // Éxito
+        form.reset();
+        if (msgCount) msgCount.textContent = "0 / 2000";
+        [nameInput, emailInput, msgInput].forEach(markValid);
+
+        if (formStatus) {
+          formStatus.textContent = msgs.success;
+          formStatus.className   = "text-sm font-bold text-emerald-700";
+        }
+      } catch {
+        if (formStatus) {
+          formStatus.textContent = isEs ? "Error de conexión. Intenta de nuevo." : "Connection error. Please try again.";
+          formStatus.className   = "text-sm font-bold text-red-600";
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  </script>
+</BaseLayout>

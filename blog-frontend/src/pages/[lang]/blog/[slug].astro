@@ -1,0 +1,118 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import RelatedPosts from "../../../components/RelatedPosts.astro";
+import { createClient, normalizePost, langToLocale } from "../../../prismicio";
+import type { PostDocument } from "../../../prismicio";
+
+export async function getStaticPaths() {
+  const client = createClient();
+
+  const [docsEs, docsEn] = await Promise.all([
+    client.getAllByType("post", { lang: "es-mx" }),
+    client.getAllByType("post", { lang: "en-us" }),
+  ]);
+
+  return [
+    ...docsEs.map((doc) => ({ params: { lang: "es", slug: doc.uid }, props: { doc } })),
+    ...docsEn.map((doc) => ({ params: { lang: "en", slug: doc.uid }, props: { doc } })),
+  ];
+}
+
+const { lang } = Astro.params as { lang: "es" | "en"; slug: string };
+const { doc }  = Astro.props as { doc: PostDocument };
+
+const post = normalizePost(doc);
+
+// ── Language Switcher: apunta al UID real del post traducido ──────────────────
+const oppositeLang   = lang === "es" ? "en" : "es";
+const alternateLocale = langToLocale[oppositeLang];
+const alternate       = doc.alternate_languages?.find((alt) => alt.lang === alternateLocale);
+const switchUrl       = alternate?.uid
+  ? `/${oppositeLang}/blog/${alternate.uid}`
+  : `/${oppositeLang}/blog`;
+
+// ── Posts del mismo idioma para RelatedPosts (un solo fetch) ──────────────────
+const client   = createClient();
+const allDocs  = await client.getAllByType("post", { lang: langToLocale[lang] });
+const allPosts = allDocs.map(normalizePost);
+
+const publishedDate = post.publishedAt
+  ? new Date(post.publishedAt).toLocaleDateString(lang === "es" ? "es-MX" : "en-US")
+  : "";
+---
+
+<BaseLayout
+  title={`${post.title} | ZOOBLOG`}
+  description={post.description}
+  ogImage={post.image || undefined}
+  switchUrl={switchUrl}
+>
+  <section class="bg-gradient-to-br from-emerald-50 via-white to-sky-50">
+    <div class="mx-auto max-w-6xl px-6 py-20">
+
+      <!-- HERO DEL ARTÍCULO -->
+      <div class="mx-auto max-w-4xl text-center">
+        <div class="flex justify-center flex-wrap gap-3">
+          {post.tags.map((tag) => (
+            <a
+              href={`/${lang}/categoria/${tag}`}
+              class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-200"
+            >
+              #{tag}
+            </a>
+          ))}
+        </div>
+
+        <p class="mt-8 text-sm font-black uppercase tracking-[0.25em] text-slate-500">
+          {publishedDate}
+        </p>
+
+        <h1 class="mt-6 text-5xl font-black leading-tight tracking-tight text-slate-950 md:text-7xl">
+          {post.title}
+        </h1>
+
+        <p class="mx-auto mt-8 max-w-3xl text-xl leading-9 text-slate-600">
+          {post.description}
+        </p>
+      </div>
+
+      <!-- IMAGEN PRINCIPAL -->
+      {post.image && (
+        <div class="mx-auto mt-16 max-w-5xl overflow-hidden rounded-[3rem] bg-slate-200 shadow-2xl shadow-emerald-100">
+          <img
+            src={post.image}
+            alt={post.imageAlt}
+            class="h-[560px] w-full object-cover"
+          />
+        </div>
+      )}
+
+    </div>
+  </section>
+
+  <!-- CONTENIDO -->
+  <section class="bg-white">
+    <div class="mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-[220px_1fr]">
+
+      <!-- SIDEBAR INTERNO -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 rounded-[2rem] border border-emerald-100 bg-emerald-50 p-6">
+          <p class="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">
+            ZOOBLOG
+          </p>
+          <p class="mt-4 text-sm leading-6 text-slate-600">
+            {lang === "es"
+              ? "Artículo educativo sobre el mundo animal."
+              : "Educational article about the animal world."}
+          </p>
+        </div>
+      </aside>
+
+      <!-- ARTÍCULO -->
+      <article class="article-content" set:html={post.content} />
+
+    </div>
+  </section>
+
+  <RelatedPosts currentPost={post} lang={lang} allPosts={allPosts} />
+</BaseLayout>

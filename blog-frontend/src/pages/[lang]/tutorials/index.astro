@@ -1,0 +1,12 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import TutorialsList from "../../../components/TutorialsList.astro";
+
+export function getStaticPaths() {
+  return [{ params: { lang: "en" } }];
+}
+---
+
+<BaseLayout title="Tutorials | ZOOBLOG" switchUrl="/es/tutoriales">
+  <TutorialsList lang="en" />
+</BaseLayout>

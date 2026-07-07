@@ -1,0 +1,111 @@
+---
+import { tutSegment, getOppositeLang, type Lang } from "../i18n/utils";
+
+const { lang } = Astro.props as { lang: Lang };
+const segment = tutSegment[lang];
+const otherLang = getOppositeLang(lang);
+const otherSegment = tutSegment[otherLang];
+const API = import.meta.env.PUBLIC_API_URL ?? "http://localhost:8000";
+
+const copy = {
+  es: {
+    back: "← Tutoriales",
+    loading: "Cargando…",
+    notAvailable: "Este tutorial todavía no está disponible en español.",
+    seeAll: "Ver todos los tutoriales",
+  },
+  en: {
+    back: "← Tutorials",
+    loading: "Loading…",
+    notAvailable: "This tutorial is not available in English yet.",
+    seeAll: "See all tutorials",
+  },
+}[lang];
+---
+
+<section class="bg-gradient-to-br from-indigo-50 via-white to-sky-50">
+  <div class="mx-auto max-w-4xl px-6 pt-12 pb-10 text-center">
+    <a href={`/${lang}/${segment}`} class="inline-flex text-sm font-bold text-indigo-700 hover:text-indigo-900">
+      {copy.back}
+    </a>
+    <div id="tut-hero" class="mt-8"></div>
+  </div>
+  <div id="tut-image" class="mx-auto max-w-5xl px-6"></div>
+</section>
+
+<section class="bg-white">
+  <div class="mx-auto max-w-3xl px-6 py-16">
+    <article id="tut-content" class="article-content"></article>
+    <p id="tut-status" class="text-slate-500">{copy.loading}</p>
+  </div>
+</section>
+
+<script define:vars={{ API, lang, segment, otherLang, otherSegment, copy }}>
+  const slug = new URLSearchParams(location.search).get("slug");
+  const hero = document.getElementById("tut-hero");
+  const imageBox = document.getElementById("tut-image");
+  const content = document.getElementById("tut-content");
+  const status = document.getElementById("tut-status");
+
+  function resolveImg(img) {
+    if (!img) return null;
+    if (img.startsWith("http")) return img;
+    const clean = img.replace(/^\/+/, "").replace(/^storage\//, "");
+    return `${API}/storage/${clean}`;
+  }
+
+  // El cambio de idioma apunta al mismo tutorial en el otro idioma (su slug y
+  // su segmento de URL). Si no hay traducción, usa el slug actual → "no disponible".
+  function setSwitch(s) {
+    document.querySelectorAll("[data-lang-switch]").forEach((a) =>
+      a.setAttribute("href", `/${otherLang}/${otherSegment}/ver?slug=${encodeURIComponent(s)}`)
+    );
+  }
+  if (slug) setSwitch(slug);
+
+  function showNotAvailable() {
+    status.style.display = "none";
+    hero.innerHTML = `
+      <p class="text-lg leading-8 text-slate-600">${copy.notAvailable}</p>
+      <a href="/${lang}/${segment}"
+         class="mt-6 inline-flex rounded-2xl bg-indigo-600 px-6 py-3 font-bold text-white transition hover:-translate-y-0.5 hover:bg-indigo-700">
+        ${copy.seeAll} &rarr;
+      </a>`;
+  }
+
+  (async () => {
+    if (!slug) {
+      location.href = `/${lang}/${segment}`;
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/api/tutorials/${encodeURIComponent(slug)}?lang=${lang}`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) {
+        showNotAvailable();
+        return;
+      }
+      const t = await res.json();
+      document.title = `${t.title} | ZOOBLOG`;
+
+      if (t.alternate_slug) setSwitch(t.alternate_slug);
+
+      hero.innerHTML = `
+        ${t.level ? `<span class="inline-flex rounded-full bg-indigo-600 px-4 py-1.5 text-xs font-black uppercase tracking-wide text-white">${t.level}</span>` : ""}
+        <h1 class="mt-6 text-4xl font-black leading-tight tracking-tight text-slate-950 md:text-5xl">${t.title}</h1>
+        ${t.excerpt ? `<p class="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-600">${t.excerpt}</p>` : ""}
+      `;
+
+      const img = resolveImg(t.cover_image);
+      if (img) {
+        imageBox.innerHTML = `<img src="${img}" alt="${t.image_alt || t.title}" class="w-full rounded-[2rem] object-cover shadow-xl shadow-indigo-900/10" />`;
+      }
+
+      status.style.display = "none";
+      content.innerHTML = t.content ?? "";
+    } catch {
+      showNotAvailable();
+    }
+  })();
+</script>

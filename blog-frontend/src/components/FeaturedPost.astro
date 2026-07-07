@@ -1,0 +1,45 @@
+---
+import type { NormalizedPost } from "../prismicio";
+
+const { post, lang } = Astro.props as { post: NormalizedPost; lang: string };
+
+if (!post) return;
+---
+
+<a
+  href={`/${lang}/blog/${post.uid}`}
+  class="group grid overflow-hidden rounded-[2rem] bg-slate-950 shadow-2xl shadow-emerald-100 transition hover:-translate-y-1 lg:grid-cols-2"
+>
+  <div class="relative min-h-[320px] overflow-hidden">
+    {post.image && (
+      <img
+        src={post.image}
+        alt={post.imageAlt || post.title}
+        class="h-full w-full object-cover opacity-90 transition duration-500 group-hover:scale-105"
+      />
+    )}
+    <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+  </div>
+
+  <div class="flex flex-col justify-center p-8 text-white lg:p-10">
+    <span class="w-fit rounded-full bg-emerald-400/20 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
+      {lang === "es" ? "Artículo destacado" : "Featured post"}
+    </span>
+
+    <h2 class="mt-6 text-4xl font-black leading-tight">
+      {post.title}
+    </h2>
+
+    <p class="mt-4 leading-8 text-slate-300">
+      {post.description}
+    </p>
+
+    <div class="mt-6 flex flex-wrap gap-2">
+      {post.tags.map((tag) => (
+        <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white">
+          #{tag}
+        </span>
+      ))}
+    </div>
+  </div>
+</a>
