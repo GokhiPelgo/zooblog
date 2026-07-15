@@ -42,4 +42,15 @@ return [
         'deploy_hook_url' => env('DEPLOY_HOOK_URL'),
     ],
 
+    // Publicación del sitio (botón "Publicar" del panel)
+    'astro' => [
+        // 'local' → Laravel ejecuta el build de Astro en esta máquina.
+        // 'hook'  → dispara el deploy hook de Vercel (producción).
+        'publish_mode'  => env('PUBLISH_MODE', 'hook'),
+        // Ruta al proyecto frontend (Astro). Por defecto, la carpeta hermana del monorepo.
+        'frontend_path' => env('FRONTEND_PATH', base_path('../blog-frontend')),
+        // Comando que compila el sitio.
+        'build_command' => env('FRONTEND_BUILD_COMMAND', 'npm run build'),
+    ],
+
 ];

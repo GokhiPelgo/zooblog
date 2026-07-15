@@ -1,6 +1,5 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { useTranslations } from "../../i18n/utils";
 
 export function getStaticPaths() {
   return [
@@ -10,23 +9,87 @@ export function getStaticPaths() {
 }
 
 const lang = Astro.params.lang as "es" | "en";
-const t = useTranslations(lang);
 
-const localizedRoutes = {
+// --- Valores por defecto (respaldo si el backend no responde en el build) ---
+const defaults = {
   es: {
-    blog: "/es/blog",
+    badge: "Todo sobre el reino animal",
+    title: "ZOOBLOGÍA DE LOS ANIMALES",
+    subtitle:
+      "Explora datos, especies, hábitats y curiosidades sobre los animales que habitan nuestro planeta.",
+    primary_label: "Ver blog",
+    primary_url: "/es/blog",
+    secondary_label: "Explorar especies",
+    secondary_url: "/es/blog",
+    image1_alt: "Guacamaya en su hábitat natural",
+    image2_alt: "Jaguar en la selva",
+    image3_alt: "Tlacuache en su hábitat",
+    image4_alt: "Leopardo de las nieves",
     langSwitch: "/en",
   },
   en: {
-    blog: "/en/blog",
+    badge: "All about the animal kingdom",
+    title: "ANIMAL ZOOLOGY",
+    subtitle:
+      "Explore facts, species, habitats and curiosities about the animals that inhabit our planet.",
+    primary_label: "View blog",
+    primary_url: "/en/blog",
+    secondary_label: "Explore species",
+    secondary_url: "/en/blog",
+    image1_alt: "Macaw in its natural habitat",
+    image2_alt: "Jaguar in the jungle",
+    image3_alt: "Opossum in its habitat",
+    image4_alt: "Snow leopard",
     langSwitch: "/es",
   },
+} as const;
+
+// Imágenes por defecto del collage (una por slot).
+const imageDefaults = {
+  image1: "/images/guacamaya.jpg",
+  image2: "/images/jaguar.jpg",
+  image3: "/images/tlacuache.jpg",
+  image4: "/images/leopardo_nieve.jpg",
 };
 
-const routes = localizedRoutes[lang];
+// --- Contenido editable desde el panel (se pide en el build) ---
+const API = import.meta.env.PUBLIC_API_URL ?? "http://localhost:8000";
+let data: Record<string, any> = { ...defaults[lang] };
+
+try {
+  // Timeout de 8s: si el backend no responde, seguimos con los valores por
+  // defecto en vez de colgar el build indefinidamente.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  const res = await fetch(`${API}/api/home/${lang}`, { signal: controller.signal });
+  clearTimeout(timer);
+
+  if (res.ok) {
+    const json = await res.json();
+    // Solo sobreescribimos con valores reales (ignoramos null/vacío).
+    for (const [key, value] of Object.entries(json)) {
+      if (value !== null && value !== undefined && value !== "") {
+        data[key] = value;
+      }
+    }
+  }
+} catch (e) {
+  // Backend no disponible o lento en el build: usamos los valores por defecto.
+}
+
+// Imágenes finales: la subida en el panel o, si no hay, la de por defecto.
+const images = {
+  src1: data.image1 ?? imageDefaults.image1,
+  src2: data.image2 ?? imageDefaults.image2,
+  src3: data.image3 ?? imageDefaults.image3,
+  src4: data.image4 ?? imageDefaults.image4,
+};
 ---
 
-<BaseLayout title={lang === "es" ? "Inicio | ZOOBLOG" : "Home | ZOOBLOG"} switchUrl={routes.langSwitch}>
+<BaseLayout
+  title={lang === "es" ? "Inicio | ZOOBLOG" : "Home | ZOOBLOG"}
+  switchUrl={defaults[lang].langSwitch}
+>
 
   <section class="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-sky-50">
     <div class="mx-auto grid min-h-[85vh] max-w-6xl items-center gap-16 px-6 py-24 lg:grid-cols-2">
@@ -34,34 +97,32 @@ const routes = localizedRoutes[lang];
       <!-- TEXTO -->
       <div data-scroll-reveal class="relative z-10">
         <span class="inline-flex rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
-          {lang === "es" ? "Todo sobre el reino animal" : "All about the animal kingdom"}
+          {data.badge}
         </span>
 
         <h1
           data-hero-title
           class="mt-6 text-5xl font-black leading-tight tracking-tight text-slate-950 md:text-6xl"
         >
-          {lang === "es" ? "ZOOBLOGÍA DE LOS ANIMALES" : "ANIMAL ZOOLOGY"}
+          {data.title}
         </h1>
 
         <p data-scroll-reveal class="mt-6 max-w-xl text-lg leading-8 text-slate-600">
-          {lang === "es"
-            ? "Explora datos, especies, hábitats y curiosidades sobre los animales que habitan nuestro planeta."
-            : "Explore facts, species, habitats and curiosities about the animals that inhabit our planet."}
+          {data.subtitle}
         </p>
 
         <div data-scroll-reveal class="mt-8 flex flex-wrap gap-4">
           <a
-            href={routes.blog}
+            href={data.primary_url}
             class="inline-flex rounded-2xl bg-emerald-600 px-6 py-3 font-bold text-white shadow-lg shadow-emerald-200 transition hover:-translate-y-1 hover:bg-emerald-700"
           >
-            {t("viewBlog")}
+            {data.primary_label}
           </a>
           <a
-            href={routes.blog}
+            href={data.secondary_url}
             class="inline-flex rounded-2xl border border-slate-300 bg-white px-6 py-3 font-bold text-slate-700 transition hover:-translate-y-1 hover:border-emerald-400 hover:text-emerald-700"
           >
-            {t("exploreSpecies")}
+            {data.secondary_label}
           </a>
         </div>
       </div>
@@ -75,8 +136,8 @@ const routes = localizedRoutes[lang];
           <div class="group relative col-span-7 row-span-2 overflow-hidden rounded-3xl">
             <img
               data-scroll-image
-              src="/images/guacamaya.jpg"
-              alt={lang === "es" ? "Guacamaya en su hábitat natural" : "Macaw in its natural habitat"}
+              src={images.src1}
+              alt={data.image1_alt}
               class="aspect-[3/4] h-full w-full rounded-3xl object-cover"
             />
           </div>
@@ -84,8 +145,8 @@ const routes = localizedRoutes[lang];
           <div class="group relative col-span-5 overflow-hidden rounded-3xl">
             <img
               data-scroll-image
-              src="/images/jaguar.jpg"
-              alt={lang === "es" ? "Jaguar en la selva" : "Jaguar in the jungle"}
+              src={images.src2}
+              alt={data.image2_alt}
               class="aspect-[4/3] h-full w-full rounded-3xl object-cover"
             />
           </div>
@@ -93,8 +154,8 @@ const routes = localizedRoutes[lang];
           <div class="group relative col-span-5 overflow-hidden rounded-3xl">
             <img
               data-scroll-image
-              src="/images/tlacuache.jpg"
-              alt={lang === "es" ? "Tlacuache en su hábitat" : "Opossum in its habitat"}
+              src={images.src3}
+              alt={data.image3_alt}
               class="aspect-[4/3] h-full w-full rounded-3xl object-cover"
             />
           </div>
@@ -102,8 +163,8 @@ const routes = localizedRoutes[lang];
           <div class="group relative col-span-12 overflow-hidden rounded-3xl">
             <img
               data-scroll-image
-              src="/images/leopardo_nieve.jpg"
-              alt={lang === "es" ? "Leopardo de las nieves" : "Snow leopard"}
+              src={images.src4}
+              alt={data.image4_alt}
               class="aspect-[21/9] h-full w-full rounded-3xl object-cover"
             />
           </div>
