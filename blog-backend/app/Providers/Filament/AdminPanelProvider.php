@@ -29,6 +29,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // Página de perfil (menú de usuario, arriba a la derecha):
+            // permite cambiar nombre, correo y CONTRASEÑA.
+            ->profile()
             ->colors([
                 'primary' => Color::Amber,
             ])

@@ -4,6 +4,9 @@ Blog educativo bilingüe (español / inglés) sobre animales. Este documento exp
 **a detalle** cómo está construido y desplegado el proyecto: dónde vive cada parte,
 cómo funciona el blog, cómo funcionan los tutoriales, y cómo se conecta todo.
 
+> **Repositorio (monorepo):** `github.com/GokhiPelgo/zooblog` — contiene las dos
+> aplicaciones en subcarpetas: `blog-frontend/` (Astro) y `blog-backend/` (Laravel).
+
 ---
 
 ## 1. Visión general
@@ -51,8 +54,9 @@ separadas, en servidores distintos, que se hablan por HTTP.
 
 ## 3. El frontend (Astro)
 
-**Repositorio:** `github.com/GokhiPelgo/zooblog-frontend`
-**Hosting:** Vercel (gratis). Despliega automáticamente con cada `git push` a `main`.
+**Repositorio:** `github.com/GokhiPelgo/zooblog` (carpeta `blog-frontend/`)
+**Hosting:** Vercel (gratis). Despliega automáticamente con cada `git push` a `main`
+(en Vercel, el *Root Directory* apunta a `blog-frontend`).
 
 ### Tecnologías
 - **Astro 6** en modo `output: 'static'` → genera HTML plano, servido desde el CDN
@@ -63,7 +67,7 @@ separadas, en servidores distintos, que se hablan por HTTP.
 - **i18n nativo** de Astro: idiomas `es` (por defecto) y `en`, con rutas `/[lang]/...`.
 
 ### Estructura de páginas (`src/pages/`)
-- `[lang]/index.astro` → Home.
+- `[lang]/index.astro` → **Home / Portada** (editable desde el panel — ver §6b).
 - `[lang]/blog/index.astro` → listado del blog (lee de Prismic).
 - `[lang]/blog/[slug].astro` → artículo del blog.
 - `[lang]/tutoriales/index.astro` → listado de tutoriales (lee del backend, en vivo).
@@ -75,7 +79,10 @@ separadas, en servidores distintos, que se hablan por HTTP.
 
 ### Dos momentos en que se arma el contenido
 - **En el build (`astro build`):** Astro va a **Prismic** y trae los posts del
-  blog, y los "hornea" en HTML. Por eso el blog es estático y veloz.
+  blog, y los "hornea" en HTML. La **portada (Home)** también se arma en el build:
+  pide su contenido al backend (`/api/home/{lang}`) y lo deja escrito en el HTML
+  (bueno para SEO). Si el backend no responde, usa textos por defecto para que el
+  build nunca se rompa.
 - **En vivo (en el navegador):** los **tutoriales** y el **formulario de contacto**
   se piden al backend **cuando el visitante abre la página** (no en el build).
 
@@ -89,14 +96,15 @@ separadas, en servidores distintos, que se hablan por HTTP.
 
 ## 4. El backend (Laravel + Filament)
 
-**Repositorio:** `github.com/GokhiPelgo/zooblog-backend`
-**Hosting:** Render (gratis), desplegado con **Docker**. Redespliega con cada `git push`.
+**Repositorio:** `github.com/GokhiPelgo/zooblog` (carpeta `blog-backend/`)
+**Hosting:** Render (gratis), desplegado con **Docker**. Redespliega con cada `git push`
+(en Render, el *Root Directory* apunta a `blog-backend`).
 
 ### Qué hace
 1. **Panel de administración** (Filament) en `/admin`: crear/editar tutoriales,
-   ver mensajes de contacto, administrar usuarios.
+   editar la **portada (Home)**, ver mensajes de contacto, administrar usuarios.
 2. **API REST** que el frontend consume.
-3. **Base de datos** PostgreSQL donde vive todo (tutoriales, mensajes, usuarios).
+3. **Base de datos** PostgreSQL donde vive todo (tutoriales, portada, mensajes, usuarios).
 
 ### El Dockerfile (cómo arranca en Render)
 La imagen instala PHP 8.4 + extensiones (`pdo_pgsql`, `gd`, `intl`, etc.) + Composer,
@@ -115,9 +123,10 @@ php artisan serve                  # levanta el servidor en el puerto de Render
 | `POST` | `/api/contact` | Recibe el formulario de contacto |
 | `GET`  | `/api/tutorials?lang=es` | Lista los tutoriales publicados |
 | `GET`  | `/api/tutorials/{slug}?lang=es` | Un tutorial por su slug |
+| `GET`  | `/api/home/{lang}` | Contenido de la portada (Home) por idioma |
 | `GET`  | `/api/contact-messages` | Lista los mensajes (requiere token admin) |
 | `POST` | `/api/webhook/prismic` | Webhook de Prismic |
-| `POST` | `/publish` | Botón "Publicar" (dispara el deploy hook) |
+| `POST` | `/publish` | Botón "Publicar" (build local o deploy hook — ver §8) |
 
 ### Variables de entorno clave (en Render)
 `APP_KEY`, `APP_ENV=production`, `DB_*` (Postgres), `FRONTEND_URL` (CORS),
@@ -205,6 +214,31 @@ y viven en la **base de datos Postgres** del backend.
 
 ---
 
+## 6b. Cómo funciona la PORTADA (Home)
+
+La portada (el "hero" de la página principal) es **editable desde el panel**, sin
+tocar código. Su contenido vive en la base de datos, en la tabla `home_contents`.
+
+### Qué se puede editar
+Textos (etiqueta/badge, título, subtítulo), los **dos botones** (texto + enlace),
+las **4 imágenes** del collage y el **texto alternativo (alt) de cada imagen** —
+todo en **español e inglés**.
+
+### Cómo está modelado
+- Un **único registro** con columnas por idioma (`title_es`, `title_en`, …). Las 4
+  imágenes son **compartidas** entre idiomas; el *alt* es **por idioma** (SEO).
+- En el panel se edita en **una sola página con pestañas Español / English**
+  (menú *"Inicio (portada)"*), y se guarda todo de una vez.
+- Si una imagen se deja vacía, el sitio usa la **imagen por defecto** de respaldo.
+
+### Cómo llega al sitio
+El backend expone `GET /api/home/{lang}`, que "aplana" el registro al idioma pedido.
+El Home de Astro pide ese contenido **en el build** y lo hornea en el HTML. Por eso:
+los cambios de la portada se ven **después de Publicar** (igual que el blog). Si el
+backend no responde en el build, el Home usa textos por defecto (nunca se rompe).
+
+---
+
 ## 7. Formulario de contacto + correos reales
 
 **Flujo paso a paso:**
@@ -224,16 +258,39 @@ y viven en la **base de datos Postgres** del backend.
 ## 8. El botón "Publicar"
 
 En la barra superior del panel hay un botón **"🚀 Publicar"** siempre visible.
+Al pulsarlo aparece una **alerta de confirmación** ("¿Estás seguro de que quieres
+publicar los cambios?") antes de continuar. Tiene **dos modos**, según la variable
+`PUBLISH_MODE` (config `services.astro.publish_mode`):
 
-**Qué hace:** como Astro es estático y vive en Vercel (otro servidor), el botón
-**no corre `astro build` en Laravel**. En su lugar:
-1. Llama a la ruta `/publish` del backend.
-2. Esa ruta hace un POST al **deploy hook de Vercel** (`DEPLOY_HOOK_URL`).
-3. **Vercel** reconstruye y reexporta el sitio (trayendo el contenido nuevo de
-   Prismic) y lo despliega.
+**Modo `local` (desarrollo en tu máquina) — build en SEGUNDO PLANO:**
+1. Al pulsar, la ruta `/publish` **encola** un trabajo (`PublishSiteJob`) y
+   **responde al instante** (no congela la página).
+2. Un **worker** de la cola (`php artisan queue:work`) ejecuta `npm run build`
+   (**`astro build`**) por detrás y compila el sitio a `dist/`.
+3. El botón **consulta el estado** cada ~2.5s y muestra el avance: ⏳ *"Compilando…"*
+   → 🟢 *"Publicación exitosa"* o 🔴 *"No se pudo publicar: el build falló…"* con el
+   detalle. El error completo también queda en `storage/logs/laravel.log`.
 
-Sirve sobre todo para **republicar el blog** cuando cambia el contenido de Prismic
-(los tutoriales ya aparecen en vivo y no lo necesitan).
+> El estado del build se guarda en **Cache** (clave `publish.status`) y se consulta
+> con `GET /publish/status`. Así la página nunca se queda congelada esperando.
+
+**Modo `hook` (producción / Vercel):**
+1. La ruta `/publish` hace un POST al **deploy hook de Vercel** (`DEPLOY_HOOK_URL`)
+   y responde al instante.
+2. **Vercel** reconstruye y reexporta el sitio con el contenido nuevo y lo despliega.
+
+**Qué se publica:** el **blog** (Prismic) y la **portada (Home)**, que son build-time.
+Los **tutoriales** ya aparecen en vivo y no necesitan este botón.
+
+**Notas técnicas del modo local:**
+- Requiere un **worker de la cola** corriendo: `php artisan queue:work`
+  (con `QUEUE_CONNECTION=database`). Sin él, el build queda encolado y no corre.
+- Como el build corre en el worker (proceso aparte), **ya no hay *deadlock*** con el
+  servidor web, aunque sí conviene `php artisan serve --no-reload`
+  (con `PHP_CLI_SERVER_WORKERS=4`) para atender varias peticiones a la vez.
+- Laravel encuentra `npm` mediante `FRONTEND_BUILD_COMMAND` (fija el `PATH` a Node —
+  útil con nvm).
+- La ruta `/publish` está protegida con el middleware `auth` (solo autenticados).
 
 ---
 
@@ -244,6 +301,9 @@ reconstruye → en vivo.
 
 **Crear un tutorial:** `/admin` → nuevo tutorial (con imagen a R2) → publicar →
 aparece en vivo en el sitio (sin reconstruir).
+
+**Editar la portada (Home):** `/admin` → *Inicio (portada)* → editar pestañas
+Español/English → Guardar → botón **Publicar** → el Home se reconstruye con lo nuevo.
 
 **Enviar contacto:** formulario → `POST /api/contact` → guarda en BD + correo (Resend).
 
@@ -257,11 +317,40 @@ va a su slug, o avisa si no existe.
 - **Acceso al panel:** el modelo `User` implementa `FilamentUser` (en producción
   solo entra quien debe). Contraseña del admin en variable de entorno
   (`ADMIN_PASSWORD`), no en el código.
+- **Cambio de contraseña:** el panel tiene página de **Perfil** (menú de usuario,
+  arriba a la derecha) donde se cambia nombre, correo y contraseña.
+- **Redirección de invitados:** hay una ruta con nombre `login` que envía a los
+  invitados al login del panel (evita un error 500 al tocar rutas protegidas).
 - **CORS:** el backend solo acepta peticiones del dominio del frontend (`FRONTEND_URL`).
 - **Proxy:** `trustProxies` para que Laravel detecte HTTPS detrás del proxy de Render
   (sin esto, el login no funcionaba).
 - **Validación:** doble (cliente + servidor) en el formulario.
-- **Rate limiting:** 5 mensajes/hora por IP en el contacto.
+- **Rate limiting:** 5 mensajes/hora por IP en el contacto; límite de lectura en la API.
+- **Token de admin:** el listado de mensajes se compara con `hash_equals` (a prueba
+  de ataques de tiempo).
+
+---
+
+## 10b. Pruebas automatizadas (tests)
+
+El backend incluye una **suite de pruebas** (Feature tests) que verifica el
+comportamiento clave sin tener que probar a mano. Se corren con:
+
+```bash
+php artisan test
+```
+
+Usan una base de datos **SQLite en memoria** y correo **falso** (no tocan datos
+reales ni envían correos). Cubren:
+
+- **Tutoriales:** que la API solo devuelva publicados, que filtre por idioma y que
+  responda 200/404 según el slug.
+- **Portada (Home):** que `/api/home/{lang}` devuelva el contenido correcto por
+  idioma y 404 si no hay datos.
+- **Contacto:** que un mensaje válido se guarde y notifique, que uno inválido se
+  rechace (422) y que el listado exija el token de admin.
+- **Publicar:** que un invitado no pueda disparar el build y que un usuario
+  autenticado pase el guard.
 
 ---
 
@@ -275,15 +364,28 @@ cp .env.example .env
 php artisan key:generate
 touch database/database.sqlite   # en local usa SQLite
 php artisan migrate
-php artisan serve                # http://localhost:8000
+php artisan db:seed               # datos de ejemplo + admin + portada
+php artisan storage:link         # para servir las imágenes subidas
+php artisan serve --no-reload    # http://localhost:8000 (con workers, para Publicar)
 ```
+
+En **otra terminal**, deja corriendo el **worker de la cola** (procesa el build del
+botón Publicar en segundo plano):
+```bash
+php artisan queue:work
+```
+
+> Para que el botón **Publicar** compile en local, pon `PUBLISH_MODE=local` y
+> `PHP_CLI_SERVER_WORKERS=4` en el `.env`, corre el servidor con `--no-reload`, y
+> ten el `queue:work` activo.
 
 **Frontend:**
 ```bash
 cd blog-frontend
 npm install
 cp .env.example .env             # PUBLIC_API_URL=http://localhost:8000, etc.
-npm run dev                      # http://localhost:4321
+npm run dev                      # http://localhost:4321 (desarrollo)
+# npm run preview                # ver el sitio ya compilado (dist/)
 ```
 
 ---
