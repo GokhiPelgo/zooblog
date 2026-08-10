@@ -1,6 +1,9 @@
 # ZOOBLOG — Backend
 
-API REST para el formulario de contacto de ZOOBLOG. Construida con Laravel 13 y SQLite.
+Backend de ZOOBLOG, construido con **Laravel 13 + Filament 5** (SQLite en local,
+PostgreSQL en producción). Ofrece: **panel de administración** en `/admin`
+(tutoriales, portada/Home, mensajes, usuarios), **API REST** que consume el frontend,
+y el botón **Publicar** que compila el sitio.
 
 ---
 
@@ -85,29 +88,41 @@ MAIL_ADMIN_TO=tu@correo.com
 
 PRISMIC_WEBHOOK_SECRET=zooblog_secret_2026
 DEPLOY_HOOK_URL=
+
+# Botón "Publicar" en local (compila Astro en tu máquina, en segundo plano)
+PUBLISH_MODE=local
+QUEUE_CONNECTION=database
+PHP_CLI_SERVER_WORKERS=4
+# Ruta a tu Node/npm (ajústala; necesaria si usas nvm)
+FRONTEND_BUILD_COMMAND="PATH=/ruta/a/node/bin:/usr/bin:/bin npm run build"
 ```
 
-### 3. Crea la base de datos
+### 3. Crea la base de datos y siémbrala
 
 ```bash
 touch database/database.sqlite
+php artisan migrate                 # crea las tablas
+php artisan db:seed                 # datos de ejemplo + admin + portada (Home)
+php artisan storage:link            # sirve las imágenes subidas en el panel
 ```
 
-### 4. Ejecuta las migraciones
+### 4. Corre el servidor y el worker (dos terminales)
 
+El botón **Publicar** compila el sitio en segundo plano mediante una **cola**, así que
+necesitas el servidor **y** un worker corriendo.
+
+**Terminal 1 — servidor (panel + API):**
 ```bash
-php artisan migrate
+php artisan serve --no-reload       # http://localhost:8000
 ```
 
-Esto crea las tablas necesarias en SQLite.
-
-### 5. Corre el servidor
-
+**Terminal 2 — worker (procesa el build al Publicar):**
 ```bash
-php artisan serve
+php artisan queue:work
 ```
 
-El backend estará disponible en http://localhost:8000
+> Panel: **http://localhost:8000/admin** — usuario por defecto `chelo@zooblog.com` /
+> `password123`. Cambia tu contraseña en **menú de usuario → Perfil**.
 
 ---
 
@@ -116,7 +131,13 @@ El backend estará disponible en http://localhost:8000
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/api/contact` | Recibe el formulario de contacto |
+| GET | `/api/tutorials?lang=es` | Lista los tutoriales publicados |
+| GET | `/api/tutorials/{slug}?lang=es` | Un tutorial por su slug |
+| GET | `/api/home/{lang}` | Contenido de la portada (Home) por idioma |
+| GET | `/api/contact-messages` | Lista los mensajes (requiere token admin) |
 | POST | `/api/webhook/prismic` | Webhook de Prismic al publicar contenido |
+| POST | `/publish` | Botón "Publicar" (build local en cola o deploy hook) |
+| GET | `/publish/status` | Estado del build (lo consulta el botón) |
 
 ---
 
@@ -165,6 +186,17 @@ En Prismic: **Settings → Webhooks → Add a webhook**
 - Secret: el valor de `PRISMIC_WEBHOOK_SECRET` en tu `.env`
 
 En producción, agrega la URL de deploy de Vercel o Netlify en `DEPLOY_HOOK_URL` para que el sitio se reconstruya automáticamente al publicar.
+
+---
+
+## Pruebas
+
+El proyecto incluye pruebas (Feature tests) de la API y del botón Publicar. Corren en
+base de datos en memoria y con correo falso (no tocan datos reales):
+
+```bash
+php artisan test
+```
 
 ---
 

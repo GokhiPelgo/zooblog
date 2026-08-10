@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\PublishSiteJob;
+use App\Models\BuildLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
@@ -52,5 +53,37 @@ class PublishRouteTest extends TestCase
 
         $response->assertOk()->assertJson(['state' => 'error']);
         $this->assertStringContainsString('Falta configurar', $response->json('message'));
+    }
+
+    public function test_publicar_registra_la_bitacora_con_el_usuario(): void
+    {
+        Bus::fake();
+        config(['services.astro.publish_mode' => 'local']);
+
+        $user = User::factory()->create();
+        $this->actingAs($user)->postJson('/publish')->assertOk();
+
+        $this->assertDatabaseHas('build_logs', [
+            'user_id' => $user->id,
+            'status'  => 'running',
+            'mode'    => 'local',
+        ]);
+    }
+
+    public function test_el_job_cierra_la_bitacora_con_error_si_falla_el_build(): void
+    {
+        // Ruta de frontend inválida: el Job falla antes de correr npm.
+        config([
+            'services.astro.publish_mode'  => 'local',
+            'services.astro.frontend_path' => '/ruta/que/no/existe',
+        ]);
+
+        $log = BuildLog::create(['status' => 'running', 'started_at' => now()]);
+
+        (new PublishSiteJob($log->id))->handle();
+
+        $log->refresh();
+        $this->assertSame('error', $log->status);
+        $this->assertNotNull($log->finished_at);
     }
 }

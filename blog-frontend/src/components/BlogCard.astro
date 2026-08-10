@@ -1,5 +1,5 @@
 ---
-import type { NormalizedPost } from "../prismicio";
+import type { NormalizedPost } from "../lib/blog";
 
 const { post, lang } = Astro.props as { post: NormalizedPost; lang: string };
 
@@ -36,7 +36,7 @@ const date = post.publishedAt
     <div class="mt-5 flex flex-wrap gap-2">
       {post.tags.map((tag) => (
         <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-          #{tag}
+          #{tag.name}
         </span>
       ))}
     </div>

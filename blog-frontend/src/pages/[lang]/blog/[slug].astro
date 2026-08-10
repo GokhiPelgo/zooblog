@@ -1,49 +1,41 @@
 ---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import RelatedPosts from "../../../components/RelatedPosts.astro";
-import { createClient, normalizePost, langToLocale } from "../../../prismicio";
-import type { PostDocument } from "../../../prismicio";
+import { fetchPosts, fetchPost } from "../../../lib/blog";
 
 export async function getStaticPaths() {
-  const client = createClient();
-
-  const [docsEs, docsEn] = await Promise.all([
-    client.getAllByType("post", { lang: "es-mx" }),
-    client.getAllByType("post", { lang: "en-us" }),
-  ]);
+  const [postsEs, postsEn] = await Promise.all([fetchPosts("es"), fetchPosts("en")]);
 
   return [
-    ...docsEs.map((doc) => ({ params: { lang: "es", slug: doc.uid }, props: { doc } })),
-    ...docsEn.map((doc) => ({ params: { lang: "en", slug: doc.uid }, props: { doc } })),
+    ...postsEs.map((p) => ({ params: { lang: "es", slug: p.uid } })),
+    ...postsEn.map((p) => ({ params: { lang: "en", slug: p.uid } })),
   ];
 }
 
-const { lang } = Astro.params as { lang: "es" | "en"; slug: string };
-const { doc }  = Astro.props as { doc: PostDocument };
+const { lang, slug } = Astro.params as { lang: "es" | "en"; slug: string };
 
-const post = normalizePost(doc);
+const post = await fetchPost(lang, slug);
+if (!post) {
+  return Astro.redirect(`/${lang}/blog`);
+}
 
-// ── Language Switcher: apunta al UID real del post traducido ──────────────────
-const oppositeLang   = lang === "es" ? "en" : "es";
-const alternateLocale = langToLocale[oppositeLang];
-const alternate       = doc.alternate_languages?.find((alt) => alt.lang === alternateLocale);
-const switchUrl       = alternate?.uid
-  ? `/${oppositeLang}/blog/${alternate.uid}`
+// ── Language Switcher: apunta al slug del post traducido, si existe ───────────
+const oppositeLang = lang === "es" ? "en" : "es";
+const switchUrl = post?.alternateSlug
+  ? `/${oppositeLang}/blog/${post.alternateSlug}`
   : `/${oppositeLang}/blog`;
 
-// ── Posts del mismo idioma para RelatedPosts (un solo fetch) ──────────────────
-const client   = createClient();
-const allDocs  = await client.getAllByType("post", { lang: langToLocale[lang] });
-const allPosts = allDocs.map(normalizePost);
+// ── Posts del mismo idioma para RelatedPosts ──────────────────────────────────
+const allPosts = await fetchPosts(lang);
 
-const publishedDate = post.publishedAt
+const publishedDate = post?.publishedAt
   ? new Date(post.publishedAt).toLocaleDateString(lang === "es" ? "es-MX" : "en-US")
   : "";
 ---
 
 <BaseLayout
-  title={`${post.title} | ZOOBLOG`}
-  description={post.description}
+  title={`${post.metaTitle || post.title} | ZOOBLOG`}
+  description={post.metaDescription || post.description}
   ogImage={post.image || undefined}
   switchUrl={switchUrl}
 >
@@ -53,12 +45,20 @@ const publishedDate = post.publishedAt
       <!-- HERO DEL ARTÍCULO -->
       <div class="mx-auto max-w-4xl text-center">
         <div class="flex justify-center flex-wrap gap-3">
+          {post.category && (
+            <a
+              href={`/${lang}/categoria/${post.category.slug}`}
+              class="rounded-full bg-emerald-600 px-4 py-2 text-sm font-black text-white hover:bg-emerald-700"
+            >
+              {post.category.name}
+            </a>
+          )}
           {post.tags.map((tag) => (
             <a
-              href={`/${lang}/categoria/${tag}`}
+              href={`/${lang}/etiqueta/${tag.slug}`}
               class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-200"
             >
-              #{tag}
+              #{tag.name}
             </a>
           ))}
         </div>

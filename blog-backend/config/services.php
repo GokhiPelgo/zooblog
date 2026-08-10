@@ -34,11 +34,8 @@ return [
         'token' => env('ADMIN_API_TOKEN'),
     ],
 
-    // Integración con Prismic CMS
+    // Deploy hook de Vercel: dispara el rebuild del sitio (botón Publicar, modo hook)
     'prismic' => [
-        'repo'           => env('PRISMIC_REPO', 'zooblog'),
-        'webhook_secret' => env('PRISMIC_WEBHOOK_SECRET'),
-        // Deploy hook de Vercel/Netlify: dispara el rebuild del sitio estático
         'deploy_hook_url' => env('DEPLOY_HOOK_URL'),
     ],
 

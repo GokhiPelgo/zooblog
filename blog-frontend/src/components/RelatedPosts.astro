@@ -1,6 +1,6 @@
 ---
 import BlogCard from "./BlogCard.astro";
-import type { NormalizedPost } from "../prismicio";
+import type { NormalizedPost } from "../lib/blog";
 import { useTranslations } from "../i18n/utils";
 
 const { currentPost, lang, allPosts } = Astro.props as {
@@ -11,9 +11,10 @@ const { currentPost, lang, allPosts } = Astro.props as {
 
 const t = useTranslations(lang);
 
+const currentSlugs = currentPost.tags.map((t) => t.slug);
 const relatedPosts = allPosts
   .filter((post) => post.uid !== currentPost.uid)
-  .filter((post) => post.tags.some((tag) => currentPost.tags.includes(tag)))
+  .filter((post) => post.tags.some((tag) => currentSlugs.includes(tag.slug)))
   .slice(0, 3);
 ---
 

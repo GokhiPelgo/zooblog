@@ -3,7 +3,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 import BlogCard from "../../../components/BlogCard.astro";
 import BlogSidebar from "../../../components/BlogSidebar.astro";
 import FeaturedPost from "../../../components/FeaturedPost.astro";
-import { createClient, normalizePost, langToLocale } from "../../../prismicio";
+import { fetchPosts } from "../../../lib/blog";
 import { useTranslations } from "../../../i18n/utils";
 
 export function getStaticPaths() {
@@ -13,13 +13,7 @@ export function getStaticPaths() {
 const lang = Astro.params.lang as "es" | "en";
 const t = useTranslations(lang);
 
-const client = createClient();
-const docs = await client.getAllByType("post", {
-  lang: langToLocale[lang],
-  orderings: [{ field: "document.first_publication_date", direction: "desc" }],
-});
-
-const posts = docs.map(normalizePost);
+const posts = await fetchPosts(lang);
 
 const featuredPost = posts[0];
 const regularPosts = posts.slice(1);
@@ -77,7 +71,7 @@ const switchUrl = lang === "es" ? "/en/blog" : "/es/blog";
             <div
               data-scroll-reveal
               class="blog-item"
-              data-search={`${featuredPost.title} ${featuredPost.description} ${featuredPost.tags.join(" ")}`.toLowerCase()}
+              data-search={`${featuredPost.title} ${featuredPost.description} ${featuredPost.tags.map((t) => t.name).join(" ")}`.toLowerCase()}
             >
               <FeaturedPost post={featuredPost} lang={lang} />
             </div>
@@ -94,7 +88,7 @@ const switchUrl = lang === "es" ? "/en/blog" : "/es/blog";
               <div
                 data-scroll-reveal
                 class="blog-item transition-all duration-300"
-                data-search={`${post.title} ${post.description} ${post.tags.join(" ")}`.toLowerCase()}
+                data-search={`${post.title} ${post.description} ${post.tags.map((t) => t.name).join(" ")}`.toLowerCase()}
               >
                 <BlogCard post={post} lang={lang} />
               </div>

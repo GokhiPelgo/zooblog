@@ -2,8 +2,8 @@
 
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PostController;
 use App\Http\Controllers\TutorialController;
-use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
 // Contacto: 5 mensajes/hora por IP
@@ -27,5 +27,9 @@ Route::middleware('throttle:public-read')->group(function () {
     Route::get('/home/{lang}', [HomeController::class, 'show']);
 });
 
-// Webhook de Prismic — notifica cuando se publica contenido nuevo
-Route::post('/webhook/prismic', [WebhookController::class, 'prismic']);
+// Blog (lectura pública) — administrado desde Filament (reemplaza a Prismic)
+Route::middleware('throttle:public-read')->group(function () {
+    Route::get('/posts', [PostController::class, 'index']);
+    Route::get('/categories', [PostController::class, 'categories']);
+    Route::get('/posts/{slug}', [PostController::class, 'show']);
+});

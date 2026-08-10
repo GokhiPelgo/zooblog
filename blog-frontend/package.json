@@ -12,7 +12,6 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@prismicio/client": "^7.21.8",
     "@tailwindcss/postcss": "^4.3.0",
     "astro": "^6.4.4",
     "gsap": "^3.15.0",

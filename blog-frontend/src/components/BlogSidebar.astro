@@ -1,9 +1,19 @@
 ---
-import type { NormalizedPost } from "../prismicio";
+import type { NormalizedPost, Tag, Category } from "../lib/blog";
 
 const { posts, lang } = Astro.props as { posts: NormalizedPost[]; lang: string };
 
-const categories = [...new Set(posts.flatMap((post) => post.tags))];
+// Categorías reales (únicas por slug).
+const catMap = new Map<string, Category>();
+posts.forEach((post) => {
+  if (post.category) catMap.set(post.category.slug, post.category);
+});
+const categories = [...catMap.values()];
+
+// Etiquetas (únicas por slug).
+const tagMap = new Map<string, Tag>();
+posts.flatMap((post) => post.tags).forEach((tag) => tagMap.set(tag.slug, tag));
+const tags = [...tagMap.values()];
 
 const recentPosts = posts
   .slice()
@@ -16,22 +26,43 @@ const recentPosts = posts
     {lang === "es" ? "Explorar" : "Explore"}
   </h2>
 
-  <div class="mt-6">
-    <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-      {lang === "es" ? "Categorías" : "Categories"}
-    </p>
+  {categories.length > 0 && (
+    <div class="mt-6">
+      <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+        {lang === "es" ? "Categorías" : "Categories"}
+      </p>
 
-    <div class="mt-4 space-y-2">
-      {categories.map((tag) => (
-        <a
-          href={`/${lang}/categoria/${tag}`}
-          class="flex items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-100"
-        >
-          <span>#{tag}</span>
-        </a>
-      ))}
+      <div class="mt-4 space-y-2">
+        {categories.map((cat) => (
+          <a
+            href={`/${lang}/categoria/${cat.slug}`}
+            class="flex items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-100"
+          >
+            <span>{cat.name}</span>
+          </a>
+        ))}
+      </div>
     </div>
-  </div>
+  )}
+
+  {tags.length > 0 && (
+    <div class="mt-8">
+      <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+        {lang === "es" ? "Etiquetas" : "Tags"}
+      </p>
+
+      <div class="mt-4 flex flex-wrap gap-2">
+        {tags.map((tag) => (
+          <a
+            href={`/${lang}/etiqueta/${tag.slug}`}
+            class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 transition hover:bg-emerald-100 hover:text-emerald-700"
+          >
+            #{tag.name}
+          </a>
+        ))}
+      </div>
+    </div>
+  )}
 
   <div class="mt-8">
     <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">

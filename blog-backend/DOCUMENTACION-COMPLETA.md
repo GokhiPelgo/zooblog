@@ -1,8 +1,8 @@
 # ZOOBLOG — Documentación técnica completa
 
 Blog educativo bilingüe (español / inglés) sobre animales. Este documento explica
-**a detalle** cómo está construido y desplegado el proyecto: dónde vive cada parte,
-cómo funciona el blog, cómo funcionan los tutoriales, y cómo se conecta todo.
+**a detalle** cómo está construido el proyecto: dónde vive cada parte, cómo funciona
+el blog, los tutoriales y la portada, y cómo se conecta todo.
 
 > **Repositorio (monorepo):** `github.com/GokhiPelgo/zooblog` — contiene las dos
 > aplicaciones en subcarpetas: `blog-frontend/` (Astro) y `blog-backend/` (Laravel).
@@ -12,123 +12,116 @@ cómo funciona el blog, cómo funcionan los tutoriales, y cómo se conecta todo.
 ## 1. Visión general
 
 ZooBlog está formado por **dos aplicaciones independientes** que se comunican por
-internet (HTTP), más varios **servicios externos** que se encargan de tareas
-específicas (contenido, imágenes, correo).
+HTTP, más un par de **servicios externos** para tareas específicas.
 
 - **Frontend (Astro):** el sitio que ve el visitante. Es **estático**.
 - **Backend (Laravel + Filament):** la "trastienda" — panel de administración,
-  API y base de datos.
-- **Servicios externos:** Prismic (CMS del blog), Cloudflare R2 (imágenes),
-  Resend (correos).
+  API y base de datos. **Todo el contenido se administra aquí** (blog, tutoriales,
+  portada, mensajes).
+- **Servicios externos (en producción):** Cloudflare R2 (imágenes) y Resend (correos).
 
 El frontend y el backend **no son "dependencias" uno del otro**: son dos apps
-separadas, en servidores distintos, que se hablan por HTTP.
+separadas que se hablan por HTTP.
 
 ---
 
 ## 2. Arquitectura — dónde vive cada cosa
 
-| Pieza | Tecnología | Dónde vive | URL |
-|-------|-----------|------------|-----|
-| **Frontend** | Astro (estático) | **Vercel** | `zooblog-frontend.vercel.app` |
-| **Backend** | Laravel 13 + Filament 5 | **Render** (Docker) | `zooblog-backend.onrender.com` |
-| **Base de datos** | PostgreSQL | **Render** | (interna) |
-| **CMS del blog** | Prismic | **Prismic.io** | repo `zooblog` |
-| **Imágenes de tutoriales** | Cloudflare R2 (S3) | **Cloudflare** | `pub-…r2.dev` |
-| **Correos** | Resend | **Resend.com** | — |
+| Pieza | Tecnología | Dónde vive (producción) |
+|-------|-----------|-------------------------|
+| **Frontend** | Astro (estático) | **Vercel** |
+| **Backend** | Laravel 13 + Filament 5 | **Render** (Docker) |
+| **Base de datos** | PostgreSQL (prod) / SQLite (local) | Render / tu máquina |
+| **Imágenes** | Cloudflare R2 (S3) en prod / disco local en local | Cloudflare / tu máquina |
+| **Correos** | Resend (prod) / log (local) | Resend.com |
 
 ```
-            ┌──────────────┐         ┌──────────────┐
-   Visitante│  Prismic CMS │         │ Cloudflare R2│ (imágenes)
-      │     │  (blog)      │         └──────▲───────┘
-      ▼     └──────┬───────┘                │
-┌─────────────┐   │ build           ┌───────┴───────────┐
-│  FRONTEND   │◀──┘                 │     BACKEND       │
-│  Astro      │  ── POST /api/* ──▶ │  Laravel+Filament │──▶ Postgres
+┌─────────────┐                     ┌───────────────────┐
+│  FRONTEND   │  ── GET /api/* ──▶  │     BACKEND       │
+│  Astro      │                     │  Laravel+Filament │──▶ Base de datos
 │  (Vercel)   │  ◀─ JSON ─────────  │  (Render)         │──▶ Resend (correo)
 └─────────────┘                     └───────────────────┘
    estático                          panel /admin + API
 ```
+
+Todo el contenido (blog, tutoriales, portada) vive en la **base de datos** del
+backend y se administra desde el **panel** de Filament.
 
 ---
 
 ## 3. El frontend (Astro)
 
 **Repositorio:** `github.com/GokhiPelgo/zooblog` (carpeta `blog-frontend/`)
-**Hosting:** Vercel (gratis). Despliega automáticamente con cada `git push` a `main`
+**Hosting:** Vercel (gratis). Despliega con cada `git push` a `main`
 (en Vercel, el *Root Directory* apunta a `blog-frontend`).
 
 ### Tecnologías
-- **Astro 6** en modo `output: 'static'` → genera HTML plano, servido desde el CDN
-  de Vercel (rapidísimo, sin servidor de por medio).
-- **Tailwind CSS 4** (vía `@tailwindcss/postcss` + `postcss.config.mjs`).
+- **Astro 6** en modo `output: 'static'` → genera HTML plano servido desde el CDN.
+- **Tailwind CSS 4** (vía `@tailwindcss/postcss`).
 - **GSAP** y **Lenis** para animaciones y scroll suave.
-- **@prismicio/client** para traer el contenido del blog.
 - **i18n nativo** de Astro: idiomas `es` (por defecto) y `en`, con rutas `/[lang]/...`.
 
 ### Estructura de páginas (`src/pages/`)
 - `[lang]/index.astro` → **Home / Portada** (editable desde el panel — ver §6b).
-- `[lang]/blog/index.astro` → listado del blog (lee de Prismic).
+- `[lang]/blog/index.astro` → listado del blog (lee de la API del backend).
 - `[lang]/blog/[slug].astro` → artículo del blog.
-- `[lang]/tutoriales/index.astro` → listado de tutoriales (lee del backend, en vivo).
-- `[lang]/tutoriales/ver.astro` → detalle del tutorial (lee del backend, en vivo).
-- `[lang]/[slug].astro` → páginas estáticas (Sobre nosotros, Servicios, Contacto),
-  definidas en `src/data/routes.ts`.
-- `[lang]/categoria/[tag].astro` → posts del blog por etiqueta.
-- `sitemap.xml.ts`, `robots.txt.ts` → SEO (se pre-generan en el build).
+- `[lang]/categoria/[slug].astro` → artículos por **categoría**.
+- `[lang]/etiqueta/[slug].astro` → artículos por **etiqueta**.
+- `[lang]/tutoriales/index.astro` y `ver.astro` → tutoriales (lee del backend, en vivo).
+- `[lang]/[slug].astro` → páginas estáticas (Sobre nosotros, Servicios, Contacto).
+- `sitemap.xml.ts`, `robots.txt.ts` → SEO (se generan en el build).
+
+El cliente que consume la API del blog vive en **`src/lib/blog.ts`**.
 
 ### Dos momentos en que se arma el contenido
-- **En el build (`astro build`):** Astro va a **Prismic** y trae los posts del
-  blog, y los "hornea" en HTML. La **portada (Home)** también se arma en el build:
-  pide su contenido al backend (`/api/home/{lang}`) y lo deja escrito en el HTML
-  (bueno para SEO). Si el backend no responde, usa textos por defecto para que el
-  build nunca se rompa.
+- **En el build (`astro build`):** el **blog** y la **portada (Home)** piden su
+  contenido al backend (`/api/posts`, `/api/home/{lang}`) y lo "hornean" en el HTML
+  (bueno para SEO). Si el backend no responde, se usan valores por defecto para que
+  el build nunca se rompa.
 - **En vivo (en el navegador):** los **tutoriales** y el **formulario de contacto**
   se piden al backend **cuando el visitante abre la página** (no en el build).
 
-### Variables de entorno (en Vercel)
-- `PUBLIC_API_URL` = URL del backend (`https://zooblog-backend.onrender.com`).
-- `PUBLIC_SITE_URL` = URL del sitio (`https://zooblog-frontend.vercel.app`) → para
-  canonical, sitemap, OG y hreflang.
-- `PUBLIC_PRISMIC_REPO` = nombre del repositorio de Prismic.
+### Variables de entorno (frontend)
+- `PUBLIC_API_URL` = URL del backend.
+- `PUBLIC_SITE_URL` = URL del sitio (para canonical, sitemap, OG y hreflang).
 
 ---
 
 ## 4. El backend (Laravel + Filament)
 
 **Repositorio:** `github.com/GokhiPelgo/zooblog` (carpeta `blog-backend/`)
-**Hosting:** Render (gratis), desplegado con **Docker**. Redespliega con cada `git push`
-(en Render, el *Root Directory* apunta a `blog-backend`).
+**Hosting:** Render (gratis), con **Docker**. Redespliega con cada `git push`
+(*Root Directory* = `blog-backend`).
 
 ### Qué hace
-1. **Panel de administración** (Filament) en `/admin`: crear/editar tutoriales,
-   editar la **portada (Home)**, ver mensajes de contacto, administrar usuarios.
+1. **Panel de administración** (Filament) en `/admin`: administra el **blog**
+   (artículos, categorías, etiquetas), los **tutoriales**, la **portada (Home)**,
+   ve los **mensajes** de contacto y el **registro de publicaciones**.
 2. **API REST** que el frontend consume.
-3. **Base de datos** PostgreSQL donde vive todo (tutoriales, portada, mensajes, usuarios).
+3. **Base de datos** donde vive todo el contenido.
 
-### El Dockerfile (cómo arranca en Render)
-La imagen instala PHP 8.4 + extensiones (`pdo_pgsql`, `gd`, `intl`, etc.) + Composer,
-y al arrancar ejecuta:
-```
-php artisan migrate --force        # crea/actualiza las tablas
-php artisan db:seed AdminUserSeeder # crea el usuario admin
-php artisan storage:link
-php artisan config:cache
-php artisan serve                  # levanta el servidor en el puerto de Render
-```
+### Secciones del panel (`/admin`)
+- **Inicio (portada)** — editar el Home.
+- **Blog** (grupo): **Artículos**, **Categorías**, **Etiquetas**.
+- **Tutorials** — los tutoriales.
+- **Registro de publicaciones** — bitácora de cada Publicar (solo lectura).
+- Botón **🚀 Publicar** siempre visible en la barra superior.
 
 ### Rutas de la API
 | Método | Ruta | Para qué |
 |--------|------|----------|
-| `POST` | `/api/contact` | Recibe el formulario de contacto |
+| `GET`  | `/api/posts?lang=es` | Lista los artículos publicados (filtros: `category`, `tag`) |
+| `GET`  | `/api/posts/{slug}?lang=es` | Un artículo por su slug |
+| `GET`  | `/api/categories?lang=es` | Lista las categorías |
 | `GET`  | `/api/tutorials?lang=es` | Lista los tutoriales publicados |
 | `GET`  | `/api/tutorials/{slug}?lang=es` | Un tutorial por su slug |
 | `GET`  | `/api/home/{lang}` | Contenido de la portada (Home) por idioma |
+| `POST` | `/api/contact` | Recibe el formulario de contacto |
 | `GET`  | `/api/contact-messages` | Lista los mensajes (requiere token admin) |
-| `POST` | `/api/webhook/prismic` | Webhook de Prismic |
 | `POST` | `/publish` | Botón "Publicar" (build local o deploy hook — ver §8) |
+| `GET`  | `/publish/status` | Estado del build (lo consulta el botón) |
 
-### Variables de entorno clave (en Render)
+### Variables de entorno clave (en Render / producción)
 `APP_KEY`, `APP_ENV=production`, `DB_*` (Postgres), `FRONTEND_URL` (CORS),
 `MAIL_MAILER=resend` + `RESEND_API_KEY`, `DEPLOY_HOOK_URL`, `ADMIN_PASSWORD`,
 `UPLOADS_DISK=s3` + `AWS_*` (R2).
@@ -137,271 +130,262 @@ php artisan serve                  # levanta el servidor en el puerto de Render
 
 ## 5. Cómo funciona el BLOG
 
-El blog usa **Prismic** como CMS (gestor de contenido en la nube).
+El blog se administra **100% desde Filament** (Laravel) y vive en la base de datos.
+Antes usaba Prismic; **ya no** — todo está integrado en el panel.
 
-**Flujo paso a paso:**
-1. El redactor escribe un artículo en **Prismic** (con título, imagen, tags,
-   contenido en Rich Text) y lo publica.
-2. Para que aparezca en el sitio, hay que **reconstruir** (porque el sitio es
-   estático). Eso se hace con el botón **"Publicar"** del panel.
-3. Al reconstruir, **Astro va a Prismic**, trae todos los posts y genera el HTML.
-4. El visitante ve el blog servido desde el CDN — sin tocar el backend.
+### Estructura de datos
+- **Artículos** (`posts`): el contenido principal.
+- **Categorías** (`categories`): cada artículo pertenece a **una** categoría.
+- **Etiquetas** (`tags`): un artículo puede tener **varias** (relación `post_tag`).
 
-**Importante:** el blog es **build-time**. Un post nuevo no aparece hasta el
-siguiente build (de ahí el botón "Publicar").
+### Campos de un artículo
+| Campo | Para qué |
+|-------|----------|
+| `title` | Título |
+| `slug` | URL del artículo (solo minúsculas, números y guiones — validado) |
+| `translation_key` | Enlaza las versiones es/en (mismo valor en ambas) |
+| `lang` | Idioma (`es`/`en`) |
+| `category_id` | Categoría a la que pertenece |
+| `tags` | Etiquetas (relación muchos-a-muchos) |
+| `excerpt` | Resumen corto para la tarjeta |
+| `content` | Cuerpo del artículo (editor enriquecido → HTML) |
+| `cover_image` | Imagen de portada |
+| `image_alt` | Texto alternativo de la imagen (SEO/accesibilidad) |
+| `meta_title` / `meta_description` | **SEO on-site** (title y description) |
+| `is_published` | **Estatus**: publicado o borrador |
+| `published_at` | Fecha de publicación |
+
+### Flujo paso a paso
+1. Creas/editas el artículo en `/admin` → **Blog → Artículos** (con categoría,
+   etiquetas, SEO, imagen) y lo marcas **Publicado**.
+2. Se guarda en la base de datos.
+3. Al **Publicar**, Astro reconstruye el sitio pidiendo los artículos a
+   `GET /api/posts` y los deja "horneados" en el HTML (bueno para SEO).
+
+**Importante:** el blog es **build-time** — un artículo nuevo aparece en el sitio
+**tras Publicar** (a diferencia de los tutoriales, que salen en vivo).
+
+### Bilingüe y estatus
+- Cada idioma tiene su **propio slug** (SEO); se enlazan con `translation_key`.
+- **Borrador vs publicado:** solo los artículos con `is_published` verdadero salen
+  en el sitio y en la API.
 
 ---
 
 ## 6. Cómo funcionan los TUTORIALES
 
-Los tutoriales **no usan Prismic** — se administran desde **Filament** (tu panel)
-y viven en la **base de datos Postgres** del backend.
+Los tutoriales se administran desde **Filament** y viven en la base de datos.
 
 ### Campos de un tutorial
 | Campo | Para qué |
 |-------|----------|
 | `title` | Título |
-| `slug` | URL del tutorial (solo minúsculas, números y guiones — validado) |
-| `translation_key` | Enlaza las versiones es/en (mismo valor en ambas) |
-| `lang` | Idioma (`es`/`en`) — desplegable |
-| `excerpt` | Resumen corto para la tarjeta |
-| `content` | Cuerpo del tutorial (editor enriquecido → HTML) |
-| `cover_image` | Imagen de portada (guardada en **Cloudflare R2**) |
-| `image_alt` | Texto alternativo de la imagen (SEO/accesibilidad) |
-| `level` | Nivel (principiante/intermedio/avanzado) → sirve de "categoría" |
-| `is_published` | Si está publicado o es borrador |
-| `published_at` | Fecha |
+| `slug` | URL (solo minúsculas, números y guiones — validado) |
+| `translation_key` | Enlaza las versiones es/en |
+| `lang` | Idioma (`es`/`en`) |
+| `excerpt` | Resumen corto |
+| `content` | Cuerpo (editor enriquecido → HTML) |
+| `cover_image` | Imagen de portada |
+| `image_alt` | Texto alternativo (SEO/accesibilidad) |
+| `level` | Nivel → sirve de "categoría" (filtro) |
+| `is_published` | Publicado o borrador |
 
-### Flujo paso a paso
+### Flujo
 1. Creas/editas el tutorial en `/admin` y marcas `is_published`.
-2. Se guarda en **Postgres**. La imagen se sube a **Cloudflare R2** (no al disco de
-   Render, que se borra; R2 es permanente).
-3. El frontend, cuando un visitante abre `/es/tutoriales`, **pide los tutoriales al
-   backend en vivo** (`GET /api/tutorials?lang=es`) y los muestra.
-4. Como es **en vivo (client-side)**, un tutorial nuevo aparece **sin reconstruir**
-   el sitio (a diferencia del blog).
-
-### Listado de tutoriales (con identidad propia)
-- **Acento índigo** (vs el verde del blog) para diferenciarlos visualmente.
-- **Buscador** que filtra por título en tiempo real (en el navegador).
-- **Filtro por nivel** (Todos / Principiante / Intermedio / …) en píldoras — son
-  las "categorías" de los tutoriales. Se generan solas según los niveles que uses.
-
-### Bilingüe (cambio de idioma)
-- Cada idioma tiene su **propio slug** (bueno para SEO): `como-cuidar-un-perro` (es)
-  vs `how-to-care-for-a-dog` (en).
-- Se enlazan con la **`translation_key`** (mismo valor en ambas versiones).
-- Al cambiar de idioma en un tutorial, el sitio busca la versión con la misma
-  `translation_key` en el otro idioma y va a **su** slug. Si no existe, muestra
-  *"Este tutorial todavía no está disponible en…"*.
-
-### Imágenes en Cloudflare R2
-- El disco de Render es **temporal** (se borra al reiniciar/redeploy). Por eso las
-  imágenes de tutoriales se guardan en **Cloudflare R2** (almacenamiento S3,
-  gratis hasta 10 GB, permanente).
-- En Filament, el `FileUpload` usa el disco `s3` (R2). El backend devuelve la URL
-  pública (`pub-…r2.dev/…`) y el frontend la muestra.
-- Las subidas **temporales** de Livewire siguen usando el disco local (por eso
-  el disco por defecto es `local` y solo las imágenes finales van a R2).
+2. El frontend, al abrir `/es/tutoriales`, **pide los tutoriales al backend en vivo**
+   (`GET /api/tutorials?lang=es`).
+3. Como es **en vivo (client-side)**, un tutorial nuevo aparece **sin reconstruir**.
 
 ### Diferencia BLOG vs TUTORIALES
 | | Blog | Tutoriales |
 |---|---|---|
-| Fuente | Prismic (externo) | Tu base de datos (Filament) |
-| Cuándo aparece | Tras reconstruir (build) | En vivo (al instante) |
+| Cuándo aparece | Tras Publicar (build) | En vivo (al instante) |
+| Clasificación | Categorías + etiquetas | Nivel |
 | Color | Verde esmeralda | Índigo |
-| Filtro | Tags (sidebar) | Nivel (píldoras) |
 
 ---
 
 ## 6b. Cómo funciona la PORTADA (Home)
 
-La portada (el "hero" de la página principal) es **editable desde el panel**, sin
-tocar código. Su contenido vive en la base de datos, en la tabla `home_contents`.
+La portada (el "hero" de la página principal) es **editable desde el panel**. Su
+contenido vive en la tabla `home_contents`.
 
 ### Qué se puede editar
-Textos (etiqueta/badge, título, subtítulo), los **dos botones** (texto + enlace),
-las **4 imágenes** del collage y el **texto alternativo (alt) de cada imagen** —
-todo en **español e inglés**.
+Textos (badge, título, subtítulo), los **dos botones** (texto + enlace), las **4
+imágenes** del collage y el **texto alternativo (alt)** de cada imagen — todo en
+**español e inglés**.
 
 ### Cómo está modelado
-- Un **único registro** con columnas por idioma (`title_es`, `title_en`, …). Las 4
+- Un **único registro** con columnas por idioma (`title_es`, `title_en`, …). Las
   imágenes son **compartidas** entre idiomas; el *alt* es **por idioma** (SEO).
 - En el panel se edita en **una sola página con pestañas Español / English**
-  (menú *"Inicio (portada)"*), y se guarda todo de una vez.
-- Si una imagen se deja vacía, el sitio usa la **imagen por defecto** de respaldo.
+  (menú *"Inicio (portada)"*).
+- Si una imagen se deja vacía, el sitio usa la **imagen por defecto**.
 
 ### Cómo llega al sitio
-El backend expone `GET /api/home/{lang}`, que "aplana" el registro al idioma pedido.
-El Home de Astro pide ese contenido **en el build** y lo hornea en el HTML. Por eso:
-los cambios de la portada se ven **después de Publicar** (igual que el blog). Si el
-backend no responde en el build, el Home usa textos por defecto (nunca se rompe).
+El backend expone `GET /api/home/{lang}`. El Home de Astro lo pide **en el build**,
+así que los cambios se ven **tras Publicar**. Si el backend no responde, usa textos
+por defecto (nunca se rompe).
 
 ---
 
-## 7. Formulario de contacto + correos reales
+## 7. Formulario de contacto + correos
 
-**Flujo paso a paso:**
+**Flujo:**
 1. El visitante llena el formulario en `/es/contacto`.
-2. El **navegador valida** (nombre, correo, mensaje) con las mismas reglas que el
-   servidor — es solo comodidad, no seguridad.
-3. Si pasa, hace `POST /api/contact` al backend (cruza CORS, ya configurado).
-4. Laravel **revalida y limpia** los datos (`ContactRequest`), los **guarda** en la
-   base de datos y **manda un correo** al administrador vía **Resend**.
-5. Responde `201` y el sitio muestra "¡Gracias por contactarnos!".
+2. El **navegador valida** (comodidad, no seguridad).
+3. Hace `POST /api/contact` al backend (CORS ya configurado).
+4. Laravel **revalida y limpia** (`ContactRequest`), **guarda** el mensaje y **manda
+   un correo** al administrador. En local `MAIL_MAILER=log` (no se envía, se registra);
+   en producción, con Resend.
 
-**Ver los mensajes:** en `/admin` (panel) o con el endpoint protegido
-`GET /api/contact-messages` (requiere el header `X-Admin-Token`).
+**Ver los mensajes:** en `/admin` o con `GET /api/contact-messages` (header `X-Admin-Token`).
 
 ---
 
 ## 8. El botón "Publicar"
 
-En la barra superior del panel hay un botón **"🚀 Publicar"** siempre visible.
-Al pulsarlo aparece una **alerta de confirmación** ("¿Estás seguro de que quieres
-publicar los cambios?") antes de continuar. Tiene **dos modos**, según la variable
-`PUBLISH_MODE` (config `services.astro.publish_mode`):
+En la barra superior del panel hay un botón **"🚀 Publicar"** siempre visible. Al
+pulsarlo aparece una **alerta de confirmación** antes de continuar. Tiene **dos
+modos**, según `PUBLISH_MODE`:
 
-**Modo `local` (desarrollo en tu máquina) — build en SEGUNDO PLANO:**
-1. Al pulsar, la ruta `/publish` **encola** un trabajo (`PublishSiteJob`) y
-   **responde al instante** (no congela la página).
+**Modo `local` (tu máquina) — build en SEGUNDO PLANO:**
+1. La ruta `/publish` **encola** un trabajo (`PublishSiteJob`) y **responde al
+   instante** (no congela la página).
 2. Un **worker** de la cola (`php artisan queue:work`) ejecuta `npm run build`
    (**`astro build`**) por detrás y compila el sitio a `dist/`.
-3. El botón **consulta el estado** cada ~2.5s y muestra el avance: ⏳ *"Compilando…"*
-   → 🟢 *"Publicación exitosa"* o 🔴 *"No se pudo publicar: el build falló…"* con el
-   detalle. El error completo también queda en `storage/logs/laravel.log`.
+3. El botón **consulta el estado** cada ~2.5s: ⏳ *"Compilando…"* → 🟢 *"Publicación
+   exitosa"* o 🔴 *"No se pudo publicar…"* con el detalle (que también queda en
+   `storage/logs/laravel.log`).
 
-> El estado del build se guarda en **Cache** (clave `publish.status`) y se consulta
-> con `GET /publish/status`. Así la página nunca se queda congelada esperando.
+> El estado se guarda en **Cache** (`publish.status`) y se consulta con
+> `GET /publish/status`. Así la página nunca se congela esperando el build.
 
 **Modo `hook` (producción / Vercel):**
-1. La ruta `/publish` hace un POST al **deploy hook de Vercel** (`DEPLOY_HOOK_URL`)
-   y responde al instante.
-2. **Vercel** reconstruye y reexporta el sitio con el contenido nuevo y lo despliega.
+1. La ruta `/publish` hace un POST al **deploy hook de Vercel** (`DEPLOY_HOOK_URL`).
+2. Vercel reconstruye y despliega el sitio.
 
-**Qué se publica:** el **blog** (Prismic) y la **portada (Home)**, que son build-time.
-Los **tutoriales** ya aparecen en vivo y no necesitan este botón.
+**Qué se publica:** el **blog** y la **portada (Home)** (build-time). Los tutoriales
+ya aparecen en vivo y no lo necesitan.
 
-**Notas técnicas del modo local:**
-- Requiere un **worker de la cola** corriendo: `php artisan queue:work`
-  (con `QUEUE_CONNECTION=database`). Sin él, el build queda encolado y no corre.
-- Como el build corre en el worker (proceso aparte), **ya no hay *deadlock*** con el
-  servidor web, aunque sí conviene `php artisan serve --no-reload`
-  (con `PHP_CLI_SERVER_WORKERS=4`) para atender varias peticiones a la vez.
-- Laravel encuentra `npm` mediante `FRONTEND_BUILD_COMMAND` (fija el `PATH` a Node —
-  útil con nvm).
-- La ruta `/publish` está protegida con el middleware `auth` (solo autenticados).
+**Notas del modo local:**
+- Requiere el **worker** corriendo: `php artisan queue:work` (`QUEUE_CONNECTION=database`).
+- Como el build corre en el worker (proceso aparte), no hay *deadlock*; conviene
+  `php artisan serve --no-reload` (`PHP_CLI_SERVER_WORKERS=4`).
+- Laravel encuentra `npm` con `FRONTEND_BUILD_COMMAND` (útil con nvm).
+- La ruta `/publish` está protegida con `auth`.
+
+---
+
+## 8b. Registro de publicaciones (bitácora)
+
+Cada vez que se pica **Publicar**, se guarda un registro en la tabla `build_logs`:
+**quién** publicó, **cuándo** y el **resultado** (en proceso / éxito / error). Se ve
+en el panel, en la sección **"Registro de publicaciones"** (solo lectura). Es una
+bitácora de negocio, distinta del archivo técnico `storage/logs/laravel.log`.
 
 ---
 
 ## 9. Flujos clave (resumen)
 
-**Publicar un post de blog:** Prismic → publicar → botón "Publicar" → Vercel
-reconstruye → en vivo.
+**Publicar un artículo de blog:** `/admin` → Blog → Artículos → nuevo (categoría,
+etiquetas, SEO, imagen) → marcar Publicado → botón **Publicar** → aparece en el sitio.
 
-**Crear un tutorial:** `/admin` → nuevo tutorial (con imagen a R2) → publicar →
-aparece en vivo en el sitio (sin reconstruir).
+**Crear un tutorial:** `/admin` → Tutorials → nuevo → publicar → aparece en vivo.
 
-**Editar la portada (Home):** `/admin` → *Inicio (portada)* → editar pestañas
-Español/English → Guardar → botón **Publicar** → el Home se reconstruye con lo nuevo.
+**Editar la portada (Home):** `/admin` → *Inicio (portada)* → pestañas ES/EN →
+Guardar → **Publicar**.
 
-**Enviar contacto:** formulario → `POST /api/contact` → guarda en BD + correo (Resend).
-
-**Cambiar idioma en un tutorial:** busca la `translation_key` en el otro idioma →
-va a su slug, o avisa si no existe.
+**Enviar contacto:** formulario → `POST /api/contact` → guarda en BD + correo.
 
 ---
 
 ## 10. Seguridad
 
-- **Acceso al panel:** el modelo `User` implementa `FilamentUser` (en producción
-  solo entra quien debe). Contraseña del admin en variable de entorno
-  (`ADMIN_PASSWORD`), no en el código.
-- **Cambio de contraseña:** el panel tiene página de **Perfil** (menú de usuario,
-  arriba a la derecha) donde se cambia nombre, correo y contraseña.
-- **Redirección de invitados:** hay una ruta con nombre `login` que envía a los
-  invitados al login del panel (evita un error 500 al tocar rutas protegidas).
+- **Acceso al panel:** el modelo `User` implementa `FilamentUser`. Contraseña del
+  admin en variable de entorno (`ADMIN_PASSWORD`), no en el código.
+- **Cambio de contraseña:** página de **Perfil** (menú de usuario → Perfil).
+- **Redirección de invitados:** ruta con nombre `login` que envía al login del panel.
 - **CORS:** el backend solo acepta peticiones del dominio del frontend (`FRONTEND_URL`).
-- **Proxy:** `trustProxies` para que Laravel detecte HTTPS detrás del proxy de Render
-  (sin esto, el login no funcionaba).
+- **Proxy:** `trustProxies` para detectar HTTPS detrás del proxy de Render.
 - **Validación:** doble (cliente + servidor) en el formulario.
-- **Rate limiting:** 5 mensajes/hora por IP en el contacto; límite de lectura en la API.
-- **Token de admin:** el listado de mensajes se compara con `hash_equals` (a prueba
-  de ataques de tiempo).
+- **Rate limiting:** 5 mensajes/hora por IP en contacto; límite de lectura en la API.
+- **Token de admin:** el listado de mensajes se compara con `hash_equals`.
 
 ---
 
 ## 10b. Pruebas automatizadas (tests)
 
-El backend incluye una **suite de pruebas** (Feature tests) que verifica el
-comportamiento clave sin tener que probar a mano. Se corren con:
+El backend incluye una **suite de pruebas** (Feature tests) que se corre con:
 
 ```bash
 php artisan test
 ```
 
 Usan una base de datos **SQLite en memoria** y correo **falso** (no tocan datos
-reales ni envían correos). Cubren:
+reales). Cubren:
 
-- **Tutoriales:** que la API solo devuelva publicados, que filtre por idioma y que
-  responda 200/404 según el slug.
-- **Portada (Home):** que `/api/home/{lang}` devuelva el contenido correcto por
-  idioma y 404 si no hay datos.
-- **Contacto:** que un mensaje válido se guarde y notifique, que uno inválido se
-  rechace (422) y que el listado exija el token de admin.
-- **Publicar:** que un invitado no pueda disparar el build y que un usuario
-  autenticado pase el guard.
+- **Blog:** que `/api/posts` solo devuelva publicados, que filtre por idioma y
+  categoría, que muestre categoría/etiquetas y responda 200/404 por slug.
+- **Tutoriales:** publicados, filtro por idioma y 200/404 por slug.
+- **Portada (Home):** contenido correcto por idioma y 404 si no hay datos.
+- **Contacto:** guardar + notificar, rechazo (422) y token de admin.
+- **Publicar:** que un invitado no pueda publicar, que se encole el build sin
+  bloquear y que se registre la bitácora.
 
 ---
 
 ## 11. Cómo correr en local
 
-**Backend:**
+Necesitas **3 terminales**: backend, worker de la cola y frontend.
+
+**Backend (preparación, una vez):**
 ```bash
 cd blog-backend
 composer install
 cp .env.example .env
 php artisan key:generate
-touch database/database.sqlite   # en local usa SQLite
+touch database/database.sqlite   # SQLite en local
 php artisan migrate
-php artisan db:seed               # datos de ejemplo + admin + portada
-php artisan storage:link         # para servir las imágenes subidas
-php artisan serve --no-reload    # http://localhost:8000 (con workers, para Publicar)
+php artisan db:seed              # datos de ejemplo + admin + portada + blog
+php artisan storage:link         # servir las imágenes subidas
 ```
 
-En **otra terminal**, deja corriendo el **worker de la cola** (procesa el build del
-botón Publicar en segundo plano):
+**Terminal 1 — servidor:**
+```bash
+php artisan serve --no-reload    # http://localhost:8000
+```
+
+**Terminal 2 — worker (procesa el build al Publicar):**
 ```bash
 php artisan queue:work
 ```
 
-> Para que el botón **Publicar** compile en local, pon `PUBLISH_MODE=local` y
-> `PHP_CLI_SERVER_WORKERS=4` en el `.env`, corre el servidor con `--no-reload`, y
-> ten el `queue:work` activo.
-
-**Frontend:**
+**Terminal 3 — frontend:**
 ```bash
 cd blog-frontend
 npm install
 cp .env.example .env             # PUBLIC_API_URL=http://localhost:8000, etc.
-npm run dev                      # http://localhost:4321 (desarrollo)
-# npm run preview                # ver el sitio ya compilado (dist/)
+npm run dev                      # http://localhost:4321
 ```
+
+> Para que el botón **Publicar** compile en local: `PUBLISH_MODE=local`,
+> `PHP_CLI_SERVER_WORKERS=4` en el `.env`, servidor con `--no-reload` y `queue:work`
+> activo. Panel: **http://localhost:8000/admin** (`chelo@zooblog.com` / `password123`).
 
 ---
 
 ## 12. Servicios y costos
 
-Todo el stack está en **planes gratuitos**:
+En local no cuesta nada (SQLite + disco local + correos en `log`). En producción,
+todo el stack está en **planes gratuitos**:
 - **Vercel** (frontend): gratis.
-- **Render** (backend + Postgres): gratis (el servidor se "duerme" tras inactividad
-  y tarda ~30-50s en despertar la primera vez).
-- **Prismic** (blog): gratis.
+- **Render** (backend + Postgres): gratis (el servidor se "duerme" tras inactividad).
 - **Cloudflare R2** (imágenes): gratis hasta 10 GB.
-- **Resend** (correos): gratis (3,000/mes).
+- **Resend** (correos): gratis (3,000/mes; requiere dominio verificado para enviar a
+  cualquier destinatario).
 
-El único costo opcional a futuro sería un **dominio propio** (~$10/año), necesario
-para enviar correos a cualquier persona y para una URL de marca.
+El único costo opcional a futuro sería un **dominio propio** (~$10/año).
 
 ---
 

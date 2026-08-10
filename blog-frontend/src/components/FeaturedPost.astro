@@ -1,9 +1,11 @@
 ---
-import type { NormalizedPost } from "../prismicio";
+import type { NormalizedPost } from "../lib/blog";
 
 const { post, lang } = Astro.props as { post: NormalizedPost; lang: string };
 
 if (!post) return;
+
+
 ---
 
 <a
@@ -37,7 +39,7 @@ if (!post) return;
     <div class="mt-6 flex flex-wrap gap-2">
       {post.tags.map((tag) => (
         <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white">
-          #{tag}
+          #{tag.name}
         </span>
       ))}
     </div>
