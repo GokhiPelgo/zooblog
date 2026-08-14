@@ -389,4 +389,48 @@ El único costo opcional a futuro sería un **dominio propio** (~$10/año).
 
 ---
 
+## 13. Stack tecnológico (niveles)
+
+Lo que se necesita para levantar el proyecto, en tres niveles:
+
+| | Básico | Normal | Óptimo |
+|---|---|---|---|
+| Base de datos | SQLite | SQLite | PostgreSQL |
+| Cola / worker | — | `queue:work` | Redis + Horizon |
+| Correos | log | log | Resend + dominio |
+| Imágenes | disco local | disco local | R2 / S3 |
+| Botón Publicar | manual (`npm run build`) | automático | automático |
+| Pruebas / CI | — | tests locales | CI/CD |
+| Monitoreo | — | — | Sentry + respaldos |
+| Para qué sirve | demostrar que corre | desarrollar cómodo | producción real |
+
+- **Básico:** PHP 8.3 + Composer, Node 22 + npm y SQLite. Solo `php artisan serve`
+  y `npm run dev` (sin worker; el build se hace a mano con `npm run build`).
+- **Normal (el actual):** lo básico + worker de la cola (`queue:work`) +
+  `serve --no-reload` + pruebas. Atajo: `composer dev`.
+- **Óptimo:** PostgreSQL, Redis + Supervisor/Horizon, R2/S3, Resend con dominio,
+  HTTPS, CI/CD, monitoreo (Sentry) y respaldos automáticos.
+
+---
+
+## 14. Diagramas
+
+**Flujo del botón "Publicar"** (build en segundo plano):
+
+![Flujo de Publicar](docs/diagramas/publicar.png)
+
+**Flujo del contenido** (del panel al sitio que ve el visitante):
+
+![Flujo de contenido](docs/diagramas/contenido.png)
+
+**Blog (build-time) vs Tutoriales (en vivo):**
+
+![Blog vs Tutoriales](docs/diagramas/blog_vs_tut.png)
+
+**Base de datos** (tablas principales y sus relaciones):
+
+![Base de datos](docs/diagramas/basedatos.png)
+
+---
+
 *ZOOBLOG — Documentación técnica © 2026*
